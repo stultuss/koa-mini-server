@@ -3,6 +3,14 @@ Koa Mini Server
 
 > Quickly create a minimal Koa server.
 
+### Feature
+
+- [ ] koa-cors
+- [ ] jwt
+- [ ] cache
+- [ ] mysql
+- [ ] typeorm
+
 ## Usage
 
 ```bash
