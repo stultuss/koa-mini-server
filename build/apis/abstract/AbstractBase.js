@@ -8,8 +8,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const _ = require("underscore");
 const joi = require("@hapi/joi");
-const ErrorFormat_1 = require("../../lib/Error/ErrorFormat");
+const ErrorFormat_1 = require("../../common/ErrorFormat");
 class AbstractBase {
     constructor() {
         this.schema = {};
@@ -25,7 +26,15 @@ class AbstractBase {
      */
     _paramsPares() {
         return (ctx, next) => __awaiter(this, void 0, void 0, function* () {
-            ctx.request.aggregatedParams = Object.assign({}, ctx.params, ctx.request.query, ctx.request.body);
+            let aggregatedParams = Object.assign({}, ctx.params, ctx.request.query, ctx.request.body);
+            // 将数字类型的参数 format 转成
+            for (let i of Object.keys(aggregatedParams)) {
+                const formatted = Number(aggregatedParams[i]);
+                if (_.isNumber(formatted) && !_.isNaN(formatted)) {
+                    aggregatedParams[i] = formatted;
+                }
+            }
+            ctx.request.aggregatedParams = aggregatedParams;
             yield next();
         });
     }

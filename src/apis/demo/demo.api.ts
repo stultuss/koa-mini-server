@@ -1,7 +1,11 @@
-import {Context as KoaContext} from 'koa';
 import * as joi from '@hapi/joi';
+import {Context as KoaContext} from 'koa';
 import {AbstractBase, MiddlewareNext, RequestSchema} from '../abstract/AbstractBase';
-import {ErrorFormat} from '../../lib/Error/ErrorFormat';
+import {ErrorFormat} from '../../common/ErrorFormat';
+
+interface RequestParams {
+    name: string
+}
 
 class Demo extends AbstractBase {
     
@@ -11,14 +15,15 @@ class Demo extends AbstractBase {
         this.uri = '/v1/demo';
         this.type = 'application/json; charset=utf-8';
         this.schema = {
-            name: joi.number().required()
+            id: joi.number().required(),
+            name: joi.string().required()
         };
     }
     
     public async handle(ctx: KoaContext, req: RequestSchema, next: MiddlewareNext): Promise<any> {
-        const params = req.aggregatedParams;
+        const params = req.aggregatedParams as RequestParams;
         
-        if (1) {
+        if (params.name == 'error') {
             throw new ErrorFormat(20001, "default error message");
         }
         

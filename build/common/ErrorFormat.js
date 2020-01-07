@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const Utility_1 = require("../Utility");
-const exception_1 = require("../../constant/exception");
+const Utility_1 = require("./Utility");
+const exception_1 = require("../constant/exception");
 class ErrorFormat extends Error {
     constructor(code, ...argus) {
         super();

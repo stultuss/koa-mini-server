@@ -1,5 +1,5 @@
-import {CommonTools} from '../Utility';
-import {ERROR_CODE} from '../Const/ErrorCode';
+import {CommonTools} from './Utility';
+import {ERROR_CODE} from '../constant/exception';
 
 export class ErrorFormat extends Error {
   public code: number;

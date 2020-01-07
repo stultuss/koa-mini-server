@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const ErrorHandle_class_1 = require("./lib/Error/ErrorHandle.class");
 const server_1 = require("./server");
 // 获取配置
 const configs = {
@@ -14,5 +13,3 @@ server_1.default.init(configs).then(() => {
     // 捕获启动报错
     console.log(err);
 });
-// 异常捕获
-ErrorHandle_class_1.ErrorHandle.init();

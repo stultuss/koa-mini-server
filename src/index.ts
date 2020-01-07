@@ -1,4 +1,3 @@
-import {ErrorHandle} from './lib/Error/ErrorHandle.class';
 import server, {IConfigs} from './server';
 
 // 获取配置
@@ -14,6 +13,3 @@ server.init(configs).then(() => {
     // 捕获启动报错
     console.log(err);
 });
-
-// 异常捕获
-ErrorHandle.init();

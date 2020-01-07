@@ -1,6 +1,7 @@
-import {Context as KoaContext, Middleware as KoaMiddleware, Request as KoaRequest} from 'koa';
+import * as _ from 'underscore';
 import * as joi from '@hapi/joi';
-import {ErrorFormat} from '../../lib/Error/ErrorFormat';
+import {Context as KoaContext, Middleware as KoaMiddleware, Request as KoaRequest} from 'koa';
+import {ErrorFormat} from '../../common/ErrorFormat';
 
 export interface RequestSchema extends KoaRequest {
     aggregatedParams?: { [key: string]: any };
@@ -35,7 +36,17 @@ export abstract class AbstractBase {
      */
     protected _paramsPares(): KoaMiddleware {
         return async (ctx: KoaContext, next: MiddlewareNext): Promise<void> => {
-            (ctx.request as RequestSchema).aggregatedParams = Object.assign({}, ctx.params, ctx.request.query, ctx.request.body);
+            let aggregatedParams = Object.assign({}, ctx.params, ctx.request.query, ctx.request.body);
+            
+            // 将数字类型的参数 format 转成
+            for (let i of Object.keys(aggregatedParams)) {
+                const formatted = Number(aggregatedParams[i]);
+                if (_.isNumber(formatted) && !_.isNaN(formatted)) {
+                    aggregatedParams[i] = formatted;
+                }
+            }
+            
+            (ctx.request as RequestSchema).aggregatedParams = aggregatedParams;
             await next();
         };
     }
@@ -90,10 +101,10 @@ export abstract class AbstractBase {
     }
     
     public handleError(e: Error | ErrorFormat | number | string): ResponseSchema {
-    
+        
         // CommonTools.logger(e, CommonTools.LOGGER_TYPE_ERROR);
         // 默认报错
-        let response : ResponseSchema = {
+        let response: ResponseSchema = {
             code: 10001
         };
         

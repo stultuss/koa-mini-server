@@ -1,32 +1,37 @@
-import * as _ from 'underscore';
-import * as http from 'http';
-import * as qs from 'querystring';
-import * as util from 'util';
-import * as request from 'request';
-import * as os from 'os';
-import {spawn} from 'child_process';
-import {ErrorFormat} from './Error/ErrorFormat';
-import {ParsedUrlQueryInput} from 'querystring';
-
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const _ = require("underscore");
+const qs = require("querystring");
+const util = require("util");
+const request = require("request");
+const os = require("os");
+const child_process_1 = require("child_process");
+const ErrorFormat_1 = require("./ErrorFormat");
 const MIN_REQUEST_DELAY = 500;
 const MAX_REQUEST_DELAY = 7000;
 const MAX_RECONNECT_COUNT = 3; // normal connect count:1, reconnect count:3, total count: 1 + 3
-
 /**
  * 通用工具库
  */
-export namespace CommonTools {
-    
-    export const LOGGER_TYPE_INFO = 0;
-    export const LOGGER_TYPE_DEBUG = 1;
-    export const LOGGER_TYPE_WARN = 2;
-    export const LOGGER_TYPE_ERROR = 3;
-    export const LOGGER_TYPE_FATAL = 4;
-    
+var CommonTools;
+(function (CommonTools) {
+    CommonTools.LOGGER_TYPE_INFO = 0;
+    CommonTools.LOGGER_TYPE_DEBUG = 1;
+    CommonTools.LOGGER_TYPE_WARN = 2;
+    CommonTools.LOGGER_TYPE_ERROR = 3;
+    CommonTools.LOGGER_TYPE_FATAL = 4;
     /**
      * 记录日志
      */
-    export function logger(text: any, level: number = LOGGER_TYPE_INFO, isShow: boolean = false) {
+    function logger(text, level = CommonTools.LOGGER_TYPE_INFO, isShow = false) {
         // // 是否打印日志
         // if (process.env.PROJECT_ENV == 'development' || isShow === true) {
         //     console.log(text);
@@ -53,12 +58,12 @@ export namespace CommonTools {
         //         break;
         // }
     }
-    
+    CommonTools.logger = logger;
     /**
      * 随机字符串
      * @return {string}
      */
-    export function randStr(lenght: number = 4) {
+    function randStr(lenght = 4) {
         let p = 'ABCDEFGHKMNPQRSTUVWXYZ3456789';
         let str = '';
         for (let i = 0; i < lenght; i++) {
@@ -66,40 +71,35 @@ export namespace CommonTools {
         }
         return str;
     }
-    
+    CommonTools.randStr = randStr;
     /**
      * 获取 IP
      *
      * @param {module:http.ClientRequest} req
      */
-    export function getIP(req: http.ClientRequest) {
-        
-        if (req && typeof ((req as any).headers['x-forwarded-for']) != 'undefined') {
-            let forwardedIpsStr = (req as any).headers['x-forwarded-for'];
+    function getIP(req) {
+        if (req && typeof (req.headers['x-forwarded-for']) != 'undefined') {
+            let forwardedIpsStr = req.headers['x-forwarded-for'];
             let forwardedIps = forwardedIpsStr.split(',');
             return forwardedIps[0];
         }
-        
         let ipAddress;
         if (req) {
             if (req.connection && req.connection.remoteAddress) {
                 ipAddress = req.connection.remoteAddress;
             }
-            
             if (!ipAddress && req.socket && req.socket.remoteAddress) {
                 ipAddress = req.socket.remoteAddress;
             }
-            
             if (!ipAddress && req.connection
-                && (req.connection as any).socket
-                && (req.connection as any).socket.remoteAddress) {
-                ipAddress = (req.connection as any).socket.remoteAddress;
+                && req.connection.socket
+                && req.connection.socket.remoteAddress) {
+                ipAddress = req.connection.socket.remoteAddress;
             }
         }
-        
         return ipAddress;
     }
-    
+    CommonTools.getIP = getIP;
     /**
      * 数字区间
      *
@@ -108,14 +108,14 @@ export namespace CommonTools {
      * @param {number} interval
      * @return {number[]}
      */
-    export function range(start: number, end: number, interval: number = 1) {
+    function range(start, end, interval = 1) {
         const list = [];
         for (let i = start; i <= end; i += interval) {
             list.push(i);
         }
         return list;
     }
-    
+    CommonTools.range = range;
     /**
      * 填充 string
      *
@@ -124,12 +124,12 @@ export namespace CommonTools {
      * @param {string} context
      * @return {string}
      */
-    export function padding(num: number, length: number, context: string = '0') {
+    function padding(num, length, context = '0') {
         let numLength = (num.toString()).length;
         let paddingLen = (length > numLength) ? length - numLength + 1 || 0 : 0;
         return Array(paddingLen).join(context) + num;
     }
-  
+    CommonTools.padding = padding;
     /**
      * Refresh regularly generated resource according to now time & last time resource charged time.
      *
@@ -141,7 +141,7 @@ export namespace CommonTools {
      * @param {number} reqTime
      * @return any
      */
-    export function refreshResource(resource: number, lastChargedTime: number, limit: number, recoveryInterval: number, recoveryAmount: number, reqTime: number): [number, number] {
+    function refreshResource(resource, lastChargedTime, limit, recoveryInterval, recoveryAmount, reqTime) {
         // prepare params
         const recoveryTimes = Math.floor((reqTime - lastChargedTime) / recoveryInterval);
         if (recoveryTimes) { // resource recovery time reached, go through following logics
@@ -154,15 +154,13 @@ export namespace CommonTools {
             // if resource recovered, time need to be set to now
             lastChargedTime += recoveryTimes * recoveryInterval;
         }
-        
         return [resource, lastChargedTime];
     }
-    
+    CommonTools.refreshResource = refreshResource;
     /**
      * util.format()
      */
-    export const format = util.format;
-    
+    CommonTools.format = util.format;
     /**
      * 将 callback 的方法转成 promise 方法
      *
@@ -170,158 +168,152 @@ export namespace CommonTools {
      * @param {any} receiver
      * @return {Function}
      */
-    export function promisify(fn: Function, receiver: any): (...args) => Promise<any> {
+    function promisify(fn, receiver) {
         return (...args) => {
             return new Promise((resolve, reject) => {
                 fn.apply(receiver, [...args, (err, res) => {
-                    return err ? reject(err) : resolve(res);
-                }]);
+                        return err ? reject(err) : resolve(res);
+                    }]);
             });
         };
     }
-}
-
+    CommonTools.promisify = promisify;
+})(CommonTools = exports.CommonTools || (exports.CommonTools = {}));
 /**
  * 时间函数工具库
  */
-export namespace TimeTools {
-    
-    export const EMPTY_TIME = '0000-00-00 00:00:00'; // default value in DB
-    export const TIMESTAMP_INIT_TIME = '1970-01-01 00:00:00';
-    
+var TimeTools;
+(function (TimeTools) {
+    TimeTools.EMPTY_TIME = '0000-00-00 00:00:00'; // default value in DB
+    TimeTools.TIMESTAMP_INIT_TIME = '1970-01-01 00:00:00';
     // time constants, all in seconds
-    export const MINUTE = 60;
-    export const MINUTES5 = 300;
-    export const MINUTES10 = 600;
-    export const MINUTES30 = 1800;
-    export const HOUR = 3600;
-    export const HOURS4 = 14400;
-    export const HOURS6 = 21600;
-    export const HOURS8 = 28800;
-    export const HOURS12 = 43200;
-    export const HOURS24 = 86400;
-    export const DAY2 = 172800;
-    export const DAY3 = 259200;
-    export const DAY7 = 604800;
-    export const DEFAULT_EMPTY_TIME = 1514736000;
-    
+    TimeTools.MINUTE = 60;
+    TimeTools.MINUTES5 = 300;
+    TimeTools.MINUTES10 = 600;
+    TimeTools.MINUTES30 = 1800;
+    TimeTools.HOUR = 3600;
+    TimeTools.HOURS4 = 14400;
+    TimeTools.HOURS6 = 21600;
+    TimeTools.HOURS8 = 28800;
+    TimeTools.HOURS12 = 43200;
+    TimeTools.HOURS24 = 86400;
+    TimeTools.DAY2 = 172800;
+    TimeTools.DAY3 = 259200;
+    TimeTools.DAY7 = 604800;
+    TimeTools.DEFAULT_EMPTY_TIME = 1514736000;
     /**
      * 获取 Date 对象
      *
      * @return {Date}
      */
-    export function getDate(timestamp?: number): Date {
+    function getDate(timestamp) {
         if (timestamp === 0) {
-            timestamp = DEFAULT_EMPTY_TIME;
+            timestamp = TimeTools.DEFAULT_EMPTY_TIME;
         }
-        
         if (timestamp) {
             let millisecond = secondToMilli(timestamp);
             return new Date(millisecond);
         }
-        
         return new Date();
     }
-    
+    TimeTools.getDate = getDate;
     /**
      * 获取时间戳
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function getTime(timestamp?: number): number {
+    function getTime(timestamp) {
         let millisecond = secondToMilli(timestamp);
         return milliToSecond(getDate(millisecond).getTime());
     }
-    
+    TimeTools.getTime = getTime;
     /**
      * 获取时间的当日 0 点
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function getDayTime(timestamp?: number): number {
+    function getDayTime(timestamp) {
         let millisecond = secondToMilli(timestamp);
         let date = getDate(millisecond);
         date.setHours(0, 0, 0, 0);
         return milliToSecond(date.getTime());
     }
-    
+    TimeTools.getDayTime = getDayTime;
     /**
      * 获取时间的昨日 0 点
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function getPrevDayTime(timestamp?: number): number {
-        return getDayTime(timestamp) - HOURS24;
+    function getPrevDayTime(timestamp) {
+        return getDayTime(timestamp) - TimeTools.HOURS24;
     }
-    
+    TimeTools.getPrevDayTime = getPrevDayTime;
     /**
      * 获取时间的明日 0 点
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function getNextDayTime(timestamp?: number): number {
-        return getDayTime(timestamp) + HOURS24;
+    function getNextDayTime(timestamp) {
+        return getDayTime(timestamp) + TimeTools.HOURS24;
     }
-    
+    TimeTools.getNextDayTime = getNextDayTime;
     /**
      * 将毫秒转成秒
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function milliToSecond(timestamp: number): number {
+    function milliToSecond(timestamp) {
         if (!timestamp) {
             return timestamp;
         }
-        
         if (timestamp.toString().length < 13) {
             timestamp = secondToMilli(timestamp);
         }
         return Math.floor(timestamp / 1000);
     }
-    
+    TimeTools.milliToSecond = milliToSecond;
     /**
      * 将毫秒转成秒
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function secondToMilli(timestamp: number): number {
+    function secondToMilli(timestamp) {
         if (!timestamp) {
             return timestamp;
         }
-        
         if (timestamp && timestamp.toString().length > 10) {
             timestamp = milliToSecond(timestamp);
         }
         return Math.floor(timestamp * 1000);
     }
-    
+    TimeTools.secondToMilli = secondToMilli;
     /**
      * 获取到达次日 0 点需要多少秒
      *
      * @param {number} timestamp
      * @return {number}
      */
-    export function getNextDayRemainSecond(timestamp?: number): number {
+    function getNextDayRemainSecond(timestamp) {
         return getDayTime(timestamp) + TimeTools.HOURS24 - ((timestamp) ? timestamp : TimeTools.getTime());
     }
-    
+    TimeTools.getNextDayRemainSecond = getNextDayRemainSecond;
     /**
      * 获取当前时间点到目标时间点还需要多少秒
      *
      * @return {number}
      */
-    export function getRemainSecond(targetTime: number, beginTime?: number): number {
+    function getRemainSecond(targetTime, beginTime) {
         const target = milliToSecond(targetTime);
         const begin = beginTime || TimeTools.getTime();
         return (target < begin) ? 0 : target - begin;
     }
-    
+    TimeTools.getRemainSecond = getRemainSecond;
     /**
      * 计算当前循环轮数
      *
@@ -330,11 +322,11 @@ export namespace TimeTools {
      * @param {number} coolDown
      * @return {number}
      */
-    export function getCycleRound(time: number, startTime: number, coolDown: number) {
+    function getCycleRound(time, startTime, coolDown) {
         const curTime = (time) ? getTime() : time;
         return Math.floor((curTime - startTime) / coolDown);
     }
-    
+    TimeTools.getCycleRound = getCycleRound;
     /**
      * 计算当前循环的开始时间
      *
@@ -343,10 +335,10 @@ export namespace TimeTools {
      * @param {number} coolDown
      * @return {number}
      */
-    export function getCycleRoundTime(time: number, startTime: number, coolDown: number) {
+    function getCycleRoundTime(time, startTime, coolDown) {
         return startTime + (getCycleRound(time, startTime, coolDown)) * coolDown;
     }
-    
+    TimeTools.getCycleRoundTime = getCycleRoundTime;
     /**
      * 计算下一次循环轮次
      *
@@ -355,10 +347,10 @@ export namespace TimeTools {
      * @param {number} coolDown
      * @return {number}
      */
-    export function getNextCycleRound(time: number, startTime: number, coolDown: number) {
+    function getNextCycleRound(time, startTime, coolDown) {
         return getCycleRound(time, startTime, coolDown) + 1;
     }
-    
+    TimeTools.getNextCycleRound = getNextCycleRound;
     /**
      * 计算下一次循环的开始时间
      *
@@ -367,25 +359,26 @@ export namespace TimeTools {
      * @param {number} coolDown
      * @return {number}
      */
-    export function getNextCycleRoundTime(time: number, startTime: number, coolDown: number) {
+    function getNextCycleRoundTime(time, startTime, coolDown) {
         return startTime + (getCycleRound(time, startTime, coolDown) + 1) * coolDown;
     }
-}
-
+    TimeTools.getNextCycleRoundTime = getNextCycleRoundTime;
+})(TimeTools = exports.TimeTools || (exports.TimeTools = {}));
 /**
  * 数学函数工具库
  */
-export namespace MathTools {
+var MathTools;
+(function (MathTools) {
     /**
      * 乱序
      *
      * @param list
      */
-    export function shuffle(list): Array<any> {
+    function shuffle(list) {
         list.sort(() => Math.random() - 0.5);
         return list;
     }
-    
+    MathTools.shuffle = shuffle;
     /**
      * Get Random Element From Array. And if probability is 0, then return this bonus id directly without random logic. <br/>
      * Probability logic: The percentage probability means is determined by the total sum value.
@@ -413,11 +406,10 @@ export namespace MathTools {
      * </pre>
      * @return {number}
      */
-    export function getRandomElementByProbability(probabilityList: { [bonusId: string]: any } | { [bonusId: number]: any }): any {
+    function getRandomElementByProbability(probabilityList) {
         let all = 0;
-        let result: string = null;
+        let result = null;
         let probabilityKeys = Object.keys(probabilityList);
-        
         probabilityKeys.forEach((bonusId) => {
             let probability = probabilityList[bonusId];
             // 配置 probability = 0，则代表必中
@@ -427,7 +419,6 @@ export namespace MathTools {
             }
             all += probability;
         });
-        
         if (result == null) {
             let seed = getRandomFromRange(0, all);
             let sum = 0;
@@ -435,7 +426,6 @@ export namespace MathTools {
                 if (result != null) {
                     return;
                 }
-                
                 // get bonus id by probability
                 sum += probabilityList[bonusId];
                 if (seed <= sum) {
@@ -444,10 +434,9 @@ export namespace MathTools {
                 }
             });
         }
-        
         return result;
     }
-    
+    MathTools.getRandomElementByProbability = getRandomElementByProbability;
     /**
      * 获取随机数，范围 min <= x <= max
      *
@@ -455,17 +444,16 @@ export namespace MathTools {
      * @param {number} max
      * @return {number}
      */
-    export function getRandomFromRange(min: number, max: number): number {
+    function getRandomFromRange(min, max) {
         // min is bigger than max, exchange value
         if (min >= max) {
             min = min ^ max;
             max = min ^ max;
             min = min ^ max;
         }
-        
         return Math.round(Math.random() * (max - min) + min);
     }
-    
+    MathTools.getRandomFromRange = getRandomFromRange;
     /**
      * Calculate whether given percentage rate hit or not.
      *
@@ -476,48 +464,39 @@ export namespace MathTools {
      * </pre>
      * @return {boolean} hit
      */
-    export function calcPercentageRate(rate: number): boolean {
+    function calcPercentageRate(rate) {
         // 浮点数处理
         if (!isNaN(rate) && rate.toString().indexOf('.') != -1) {
             rate = rate * 100; // convert 0.3 => 30%
         }
-        
         let hit = false;
         if (rate <= 0) {
             // do nothing, $hit already FALSE
-        } else {
+        }
+        else {
             if (rate >= 100) {
                 hit = true;
-            } else {
+            }
+            else {
                 let randomRate = getRandomFromRange(1, 100);
                 if (randomRate <= rate) {
                     hit = true;
                 }
             }
         }
-        
         return hit;
     }
-}
-
+    MathTools.calcPercentageRate = calcPercentageRate;
+})(MathTools = exports.MathTools || (exports.MathTools = {}));
 /**
  * HTTP Request 工具库
  */
-export namespace RequestTools {
-    
-    export const methods = {
+var RequestTools;
+(function (RequestTools) {
+    RequestTools.methods = {
         'post': request.post,
         'get': request.get
     };
-    
-    export interface IRequest {
-        (uri: string, options?: request.CoreOptions, callback?: request.RequestCallback): request.Request;
-        
-        (uri: string, callback?: request.RequestCallback): request.Request;
-        
-        (options: request.UriOptions & request.CoreOptions, callback?: request.RequestCallback): request.Request;
-    }
-    
     /**
      * 封装网络请求
      *
@@ -528,46 +507,43 @@ export namespace RequestTools {
      * @param {number} timeout
      * @return {Promise<any>}
      */
-    export async function httpRequest(requestMethod: 'get' | 'post', url: string, params?: ParsedUrlQueryInput, dataType: string = 'json', timeout: number = 1000): Promise<any> {
-        // 组合 request option 配置
-        let options: request.CoreOptions = {};
-        
-        // 如果没有 timeout，则不设置过期时间
-        if (timeout) {
-            options.timeout = timeout;
-        }
-        
-        // 如果参数不为空，则进行参数拼接
-        if (!_.isEmpty(params)) {
-            for (let key of Object.keys(params)) {
-                if (params[key] == null) {
-                    delete params[key];
+    function httpRequest(requestMethod, url, params, dataType = 'json', timeout = 1000) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // 组合 request option 配置
+            let options = {};
+            // 如果没有 timeout，则不设置过期时间
+            if (timeout) {
+                options.timeout = timeout;
+            }
+            // 如果参数不为空，则进行参数拼接
+            if (!_.isEmpty(params)) {
+                for (let key of Object.keys(params)) {
+                    if (params[key] == null) {
+                        delete params[key];
+                    }
+                }
+                if (requestMethod == 'post') {
+                    options.form = params;
+                }
+                else {
+                    url += '?' + qs.stringify(params);
                 }
             }
-            
-            if (requestMethod == 'post') {
-                options.form = params;
-            } else {
-                url += '?' + qs.stringify(params);
+            let method = requestMethod.toLowerCase();
+            if (!RequestTools.methods[method]) {
+                throw new ErrorFormat_1.ErrorFormat(700510, method);
             }
-        }
-        
-        let method = requestMethod.toLowerCase();
-        if (!methods[method]) {
-            throw new ErrorFormat(700510, method);
-        }
-        let res = await makeRequest(methods[method], url, options);
-        CommonTools.logger(`[HTTP] res: ${res}, url: ${url}, options: ${JSON.stringify(options)}`);
-        
-        // 当 dataType = json 或者返回结果为空时候，直接透传
-        if (res == null || dataType != 'json') {
-            return res;
-        }
-        
-        // body 返回的结果为 json 字符串
-        return JSON.parse(res.replace('\n', ''));
+            let res = yield makeRequest(RequestTools.methods[method], url, options);
+            CommonTools.logger(`[HTTP] res: ${res}, url: ${url}, options: ${JSON.stringify(options)}`);
+            // 当 dataType = json 或者返回结果为空时候，直接透传
+            if (res == null || dataType != 'json') {
+                return res;
+            }
+            // body 返回的结果为 json 字符串
+            return JSON.parse(res.replace('\n', ''));
+        });
     }
-    
+    RequestTools.httpRequest = httpRequest;
     /**
      * 处理 RequestTools 请求，由于三方 API 的返回结构中可能带有报错，所以需要将 RequestTools 返回数据透传到方法外，由封装三方 API 的 class 单独处理
      *
@@ -577,33 +553,34 @@ export namespace RequestTools {
      * @param {number} reconnectCount
      * @return {Promise<string>}
      */
-    function makeRequest(fn: IRequest, url: string, options: request.CoreOptions, reconnectCount: number = 1): Promise<string> {
+    function makeRequest(fn, url, options, reconnectCount = 1) {
         return new Promise((resolve, reject) => {
-            let completeCallback = (err: Error | null, response?: request.Response, body: string = null) => {
+            let completeCallback = (err, response, body = null) => {
                 if (err) {
                     reject(err);
-                } else if (response && response.statusCode != 200) {
+                }
+                else if (response && response.statusCode != 200) {
                     if (response.statusCode == 429 && reconnectCount <= MAX_RECONNECT_COUNT) {
                         reconnectCount++;
                         // in case we hit RequestTools 429, delay requests by random timeout in between minRequestDelay and maxRequestDelay
                         setTimeout(() => {
                             fn(url, options, completeCallback);
                         }, MathTools.getRandomFromRange(MIN_REQUEST_DELAY, MAX_REQUEST_DELAY));
-                    } else {
+                    }
+                    else {
                         reject(new Error(`HTTP Status Code: ${response.statusCode}`));
                     }
-                } else {
+                }
+                else {
                     resolve(body);
                 }
             };
-            
             fn(url, options, completeCallback);
         });
     }
-}
-
-export namespace JsonTools {
-    
+})(RequestTools = exports.RequestTools || (exports.RequestTools = {}));
+var JsonTools;
+(function (JsonTools) {
     /**
      * 解析 JSON
      *
@@ -611,88 +588,89 @@ export namespace JsonTools {
      * @param {any} defaultValue
      * @return {Object}
      */
-    export function parse(str: string, defaultValue: any = {}): any {
+    function parse(str, defaultValue = {}) {
         try {
             return JSON.parse(str);
-        } catch (e) {
-            return defaultValue
+        }
+        catch (e) {
+            return defaultValue;
         }
     }
-    
+    JsonTools.parse = parse;
     /**
      * 字符串转 json
      *
      * @param {string} str
      * @return {Object}
      */
-    export function stringToJson(str: string): Object {
+    function stringToJson(str) {
         return JSON.parse(str);
     }
-    
+    JsonTools.stringToJson = stringToJson;
     /**
      *json 转字符串
      *
      * @param {Object} obj
      * @return {string}
      */
-    export function jsonToString(obj: Object): string {
+    function jsonToString(obj) {
         return JSON.stringify(obj);
     }
-    
+    JsonTools.jsonToString = jsonToString;
     /**
      * map 转换为 json
      *
      * @param {Map<any, any>} map
      * @return {string}
      */
-    export function mapToJson(map: Map<any, any>): string {
+    function mapToJson(map) {
         return JSON.stringify(JsonTools.mapToObj(map));
     }
-    
+    JsonTools.mapToJson = mapToJson;
     /**
      * json 转换为 map
      *
      * @param {string} str
      * @return {Map<any, any>}
      */
-    export function jsonToMap(str: string): Map<any, any> {
+    function jsonToMap(str) {
         return JsonTools.objToMap(JSON.parse(str));
     }
-    
+    JsonTools.jsonToMap = jsonToMap;
     /**
      * map 转化为 obj
      *
      * @param {Map<any, any>} map
      * @return {Object}
      */
-    export function mapToObj(map: Map<any, any>): Object {
+    function mapToObj(map) {
         let obj = Object.create(null);
         for (let [k, v] of map) {
             obj[k] = v;
         }
         return obj;
     }
-    
+    JsonTools.mapToObj = mapToObj;
     /**
      * obj 转换为 map
      *
      * @param {Object} obj
      * @return {Map<any, any>}
      */
-    export function objToMap(obj: Object): Map<any, any> {
+    function objToMap(obj) {
         let strMap = new Map();
         for (let k of Object.keys(obj)) {
             strMap.set(k, obj[k]);
         }
         return strMap;
     }
-}
-
+    JsonTools.objToMap = objToMap;
+})(JsonTools = exports.JsonTools || (exports.JsonTools = {}));
 /**
  * 分库分表工具库
  */
-export namespace SharingTools {
-    
+var SharingTools;
+(function (SharingTools) {
     /**
      * 通过数量和分片 id 计算分片，如果没有分片 id，则默认为 0 号分片
      *
@@ -700,19 +678,19 @@ export namespace SharingTools {
      * @param {number} shardKey
      * @return {number}
      */
-    export function getShardId(count: number, shardKey: number = null) {
+    function getShardId(count, shardKey = null) {
         if (count <= 1 || shardKey == null || shardKey <= 0) {
             return 0;
         }
         return shardKey % count;
     }
-}
-
+    SharingTools.getShardId = getShardId;
+})(SharingTools = exports.SharingTools || (exports.SharingTools = {}));
 /**
  * 命令行工具库
  */
-export namespace ShellTools {
-    
+var ShellTools;
+(function (ShellTools) {
     /**
      * 执行 shell
      *
@@ -720,58 +698,53 @@ export namespace ShellTools {
      * @param {string[]} args
      * @param {Function} cb
      */
-    export function exec(cmd: string, args: string[], cb: (err: Error, stdout?: string, code?: number) => void) {
+    function exec(cmd, args, cb) {
         let executed = false;
         let stdout = '';
         let stderr = '';
-        
-        let ch = spawn(cmd, args);
+        let ch = child_process_1.spawn(cmd, args);
         ch.stdout.on('data', (d) => {
             stdout += d.toString();
         });
-        
         ch.stderr.on('data', (d) => {
             stderr += d.toString();
         });
-        
-        ch.on('error', (err: Error) => {
-            if (executed) return;
+        ch.on('error', (err) => {
+            if (executed)
+                return;
             // callback
             executed = true;
             cb(err);
         });
-        
         ch.on('close', function (code, signal) {
-            if (executed) return;
-            
+            if (executed)
+                return;
             // callback
             executed = true;
             if (stderr) {
                 return cb(new Error(stderr));
             }
-            
             cb(null, stdout, code);
         });
     }
-    
+    ShellTools.exec = exec;
     /**
      * 获取 pid 信息.
      * @param  {Number[]} pids
      * @param  {Function} cb
      */
-    export function ps(pids: number[], cb: (err: Error, stat?: any) => void) {
+    function ps(pids, cb) {
         const pArg = pids.join(',');
         const args = ['-o', 'etime,pid,ppid,pcpu,time', '-p', pArg];
-        
-        exec('ps', args, (err: Error, stdout: string, code: number) => {
-            if (err) return cb(err);
+        exec('ps', args, (err, stdout, code) => {
+            if (err)
+                return cb(err);
             if (code === 1) {
                 return cb(new Error('No maching pid found'));
             }
             if (code !== 0) {
                 return cb(new Error('pidusage ps command exited with code ' + code));
             }
-            
             let now = new Date().getTime();
             let statistics = {};
             let output = stdout.split(os.EOL);
@@ -780,13 +753,11 @@ export namespace ShellTools {
                 if (!line || line.length !== 5) {
                     continue;
                 }
-                
                 let etime = line[0];
                 let pid = parseInt(line[1], 10);
                 let ppid = parseInt(line[2], 10);
                 let cpu = line[3];
                 let ctime = line[4];
-                
                 statistics[pid] = {
                     pid: pid,
                     ppid: ppid,
@@ -796,8 +767,8 @@ export namespace ShellTools {
                     timestamp: now
                 };
             }
-            
             cb(null, statistics);
         });
     }
-}
+    ShellTools.ps = ps;
+})(ShellTools = exports.ShellTools || (exports.ShellTools = {}));

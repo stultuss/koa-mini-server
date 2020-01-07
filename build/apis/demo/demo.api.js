@@ -7,10 +7,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-Object.defineProperty(exports, "__esModule", { value: true });
 const joi = require("@hapi/joi");
 const AbstractBase_1 = require("../abstract/AbstractBase");
-const ErrorFormat_1 = require("../../lib/Error/ErrorFormat");
+const ErrorFormat_1 = require("../../common/ErrorFormat");
 class Demo extends AbstractBase_1.AbstractBase {
     constructor() {
         super();
@@ -18,13 +17,14 @@ class Demo extends AbstractBase_1.AbstractBase {
         this.uri = '/v1/demo';
         this.type = 'application/json; charset=utf-8';
         this.schema = {
-            name: joi.number().required()
+            id: joi.number().required(),
+            name: joi.string().required()
         };
     }
     handle(ctx, req, next) {
         return __awaiter(this, void 0, void 0, function* () {
             const params = req.aggregatedParams;
-            if (1) {
+            if (params.name == 'error') {
                 throw new ErrorFormat_1.ErrorFormat(20001, "default error message");
             }
             return params;
