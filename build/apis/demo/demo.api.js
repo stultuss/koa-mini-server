@@ -8,34 +8,28 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const BaseApi_1 = require("./abstract/BaseApi");
-class demo extends BaseApi_1.BaseApi {
+const joi = require("@hapi/joi");
+const AbstractBase_1 = require("../abstract/AbstractBase");
+const ErrorFormat_1 = require("../../lib/Error/ErrorFormat");
+class Demo extends AbstractBase_1.AbstractBase {
     constructor() {
         super();
         this.method = 'all'; // 'all' | 'post' | 'get'
         this.uri = '/v1/demo';
         this.type = 'application/json; charset=utf-8';
+        this.schema = {
+            name: joi.number().required()
+        };
     }
-    paramsValidate(ctx) {
+    handle(ctx, req, next) {
         return __awaiter(this, void 0, void 0, function* () {
-            const params = ctx.request.params;
-            if (!params.name || params.name == '') {
-                throw new Error('Param `name` is required!');
+            const params = req.aggregatedParams;
+            if (1) {
+                throw new ErrorFormat_1.ErrorFormat(20001, "default error message");
             }
-        });
-    }
-    handle(ctx, next) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const params = ctx.request.params;
-                return this.buildResponse(params);
-            }
-            catch (err) {
-                return this.buildResponse(err.message, -1);
-            }
+            return params;
         });
     }
     ;
 }
-exports.api = new demo();
-//# sourceMappingURL=demo.js.map
+module.exports = new Demo();

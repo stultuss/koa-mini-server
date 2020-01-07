@@ -1,9 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const ErrorHandle_class_1 = require("./lib/Error/ErrorHandle.class");
 const server_1 = require("./server");
-server_1.default.init().then(() => {
+// 获取配置
+const configs = {
+    server: require('../configs/server.json')
+};
+// 初始化服务器
+server_1.default.init(configs).then(() => {
+    // 启动服务器
     server_1.default.start();
 }).catch((err) => {
-    console.log(err.message);
+    // 捕获启动报错
+    console.log(err);
 });
-//# sourceMappingURL=index.js.map
+// 异常捕获
+ErrorHandle_class_1.ErrorHandle.init();

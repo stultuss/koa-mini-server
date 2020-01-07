@@ -1,7 +1,19 @@
-import app from './server';
+import {ErrorHandle} from './lib/Error/ErrorHandle.class';
+import server, {IConfigs} from './server';
 
-app.init().then(() => {
-    app.start();
+// 获取配置
+const configs: IConfigs = {
+    server: require('../configs/server.json')
+};
+
+// 初始化服务器
+server.init(configs).then(() => {
+    // 启动服务器
+    server.start();
 }).catch((err) => {
-    console.log(err.message);
+    // 捕获启动报错
+    console.log(err);
 });
+
+// 异常捕获
+ErrorHandle.init();
