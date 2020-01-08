@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const winston = require("winston");
-const logger_1 = require("../../config/logger");
+const logger_config_1 = require("../../config/logger.config");
 /**
  * 日志单例
  */
@@ -26,7 +26,7 @@ class LoggerManager {
     init() {
         return __awaiter(this, void 0, void 0, function* () {
             this._logger = winston.createLogger({
-                level: logger_1.loggerConfig.level,
+                level: logger_config_1.loggerConfig.level,
                 format: winston.format.combine(winston.format.json(), winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), winston.format.printf(info => {
                     // 输出格式
                     // TODO message 字段是 Symbol 对象，对于 error 级的日志，需要遍历 message 的 Symbol 拿到 error 对象
@@ -38,9 +38,9 @@ class LoggerManager {
                 })),
                 transports: [
                     // 错误级别的日志处理
-                    new winston.transports.File({ level: "error" /* error */, filename: `${logger_1.loggerConfig.dir}/error.log` }),
+                    new winston.transports.File({ level: "error" /* error */, filename: `${logger_config_1.loggerConfig.dir}/error.log` }),
                     // 所有的日志处理
-                    new winston.transports.File({ filename: `${logger_1.loggerConfig.dir}/combined.log` }),
+                    new winston.transports.File({ filename: `${logger_config_1.loggerConfig.dir}/combined.log` }),
                     // 控制台输出
                     new winston.transports.Console()
                 ]

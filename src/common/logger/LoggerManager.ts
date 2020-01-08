@@ -1,6 +1,5 @@
 import * as winston from 'winston';
-import {loggerConfig} from '../../config/logger';
-import {LeveledLogMethod} from 'winston';
+import {loggerConfig} from '../../config/logger.config';
 
 // 日志类型枚举
 export const enum LoggerLevels {

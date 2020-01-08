@@ -2,6 +2,8 @@ import * as KoaRouter from 'koa-router';
 import * as LibPath from 'path';
 import {readfiles} from 'iterable-readfiles';
 import {AbstractBase} from './abstract/AbstractBase';
+import {ErrorFormat} from '../common/exception/ErrorFormat';
+import {CommonTools} from '../common/Utility';
 
 /**
  * 路由加载器
@@ -35,7 +37,7 @@ export default class RouteLoader {
         
         // 验证路由
         if (filePaths.length == 0) {
-            throw new Error('Routes is empty!');
+            throw new ErrorFormat(10000, 'Routes is empty!');
         }
         
         // 加载路由
@@ -55,7 +57,7 @@ export default class RouteLoader {
             let api = require(path) as AbstractBase;
             this._router[api.method].apply(this._router, api.register());
         } catch (err) {
-            console.error(err.toString());
+            CommonTools.logger(err.toString());
         }
     }
     

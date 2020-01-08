@@ -11,6 +11,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const KoaRouter = require("koa-router");
 const LibPath = require("path");
 const iterable_readfiles_1 = require("iterable-readfiles");
+const ErrorFormat_1 = require("../common/exception/ErrorFormat");
+const Utility_1 = require("../common/Utility");
 /**
  * 路由加载器
  */
@@ -37,7 +39,7 @@ class RouteLoader {
                 }]);
             // 验证路由
             if (filePaths.length == 0) {
-                throw new Error('Routes is empty!');
+                throw new ErrorFormat_1.ErrorFormat(10000, 'Routes is empty!');
             }
             // 加载路由
             for (let filePath of filePaths) {
@@ -57,7 +59,7 @@ class RouteLoader {
             this._router[api.method].apply(this._router, api.register());
         }
         catch (err) {
-            console.error(err.toString());
+            Utility_1.CommonTools.logger(err.toString());
         }
     }
     /**

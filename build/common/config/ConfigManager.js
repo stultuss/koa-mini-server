@@ -48,7 +48,7 @@ class ConfigManager {
                     this._configs.set(info.name, config);
                 }
                 catch (e) {
-                    throw new Error('Config file can not load, file: ' + filePath + ', msg:' + e.message);
+                    throw new ErrorFormat_1.ErrorFormat(10000, 'Config file can not load, file: ' + filePath + ', msg: ' + e.message);
                 }
             });
         });

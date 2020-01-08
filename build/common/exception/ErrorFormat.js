@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const Utility_1 = require("../Utility");
-const exception_1 = require("../../constant/exception");
+const exception_config_1 = require("../../config/exception.config");
 class ErrorFormat extends Error {
     /**
      * Construction, convert exception data from ErrorFormat format to Error format.
@@ -21,7 +21,7 @@ class ErrorFormat extends Error {
      * @return {string}
      */
     _formatMessage(argus) {
-        return Utility_1.CommonTools.format((exception_1.ERROR_CODE.hasOwnProperty(this.code) ? exception_1.ERROR_CODE[this.code] : '%s'), ...argus);
+        return Utility_1.CommonTools.format((exception_config_1.ERROR_CODE.hasOwnProperty(this.code) ? exception_config_1.ERROR_CODE[this.code] : '%s'), ...argus);
     }
 }
 exports.ErrorFormat = ErrorFormat;

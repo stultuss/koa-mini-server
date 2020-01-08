@@ -11,6 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const joi = require("@hapi/joi");
 const AbstractBase_1 = require("../abstract/AbstractBase");
 const ErrorFormat_1 = require("../../common/exception/ErrorFormat");
+const CacheFactory_class_1 = require("../../common/cache/CacheFactory.class");
 class Demo extends AbstractBase_1.AbstractBase {
     constructor() {
         super();
@@ -25,10 +26,15 @@ class Demo extends AbstractBase_1.AbstractBase {
     handle(ctx, req, next) {
         return __awaiter(this, void 0, void 0, function* () {
             const params = req.aggregatedParams;
+            // 返回结构
+            const response = params;
             if (params.name == 'error') {
                 throw new ErrorFormat_1.ErrorFormat(20001, "default error message");
             }
-            return params;
+            if (params.name == 'redis') {
+                response.incr = yield CacheFactory_class_1.CacheFactory.instance().getCache().incr('INCR');
+            }
+            return response;
         });
     }
     ;

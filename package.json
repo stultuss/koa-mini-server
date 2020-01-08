@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@hapi/joi": "^15.1.0",
+    "@types/redis": "^2.8.14",
     "debug": "^4.1.1",
     "iterable-readfiles": "^1.0.5",
     "koa": "^2.6.2",
@@ -31,6 +32,7 @@
     "koa-router": "^7.4.0",
     "koa2-cors": "^2.0.6",
     "mz": "^2.7.0",
+    "redis": "^2.8.0",
     "request": "^2.88.0",
     "underscore": "^1.9.2",
     "winston": "^3.2.1"

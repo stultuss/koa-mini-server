@@ -2,8 +2,13 @@ import * as Koa from 'koa';
 import * as koaBody from 'koa-body';
 import * as koaCors from 'koa2-cors';
 import RouteLoader from './apis/RouteLoader';
-import {serverConfig} from './config/server';
 import {LoggerManager} from './common/logger/LoggerManager';
+import {CacheFactory} from './common/cache/CacheFactory.class';
+
+import {serverConfig} from './config/server.config';
+import {cacheConfig, cacheType} from './config/cache.config';
+import {ErrorFormat} from './common/exception/ErrorFormat';
+import {CommonTools} from './common/Utility';
 
 class Server {
     private _initialized: boolean;
@@ -17,8 +22,9 @@ class Server {
     public async init(): Promise<any> {
         // 系统初始化(同步)
         let queue = [];
-        queue.push(RouteLoader.instance().init());
         queue.push(LoggerManager.instance().init());
+        queue.push(RouteLoader.instance().init());
+        queue.push(CacheFactory.instance().init(cacheType, cacheConfig));
         await Promise.all(queue);
         
         // 完成初始化
@@ -27,7 +33,7 @@ class Server {
     
     public start(): void {
         if (!this._initialized) {
-            throw new Error('Koa Server not initialized yet')
+            throw new ErrorFormat(10000, 'Koa Server not initialized yet')
         }
         
         // 加载中间件
@@ -54,7 +60,7 @@ class Server {
         
         // 启动服务器，监听端口
         this._app.listen(serverConfig.port, serverConfig.host, () => {
-            console.log(`Koa Server started, listening on: ${serverConfig.host}:${serverConfig.port}`);
+            CommonTools.logger(`Koa Server started, env: ${serverConfig.env}, listening on: ${serverConfig.host}:${serverConfig.port}`);
         });
     }
 }
