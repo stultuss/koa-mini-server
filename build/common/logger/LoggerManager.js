@@ -31,9 +31,8 @@ class LoggerManager {
                     // 输出格式
                     // TODO message 字段是 Symbol 对象，对于 error 级的日志，需要遍历 message 的 Symbol 拿到 error 对象
                     return JSON.stringify({
-                        time: info.timestamp,
-                        pid: process.pid,
                         level: info.level,
+                        time: info.timestamp,
                         message: info.message
                     });
                 })),
@@ -54,9 +53,6 @@ class LoggerManager {
     }
     warn(...params) {
         this.doLog("warn" /* warn */, arguments);
-    }
-    notice(...params) {
-        this.doLog("notice" /* notice */, arguments);
     }
     info(...params) {
         this.doLog("info" /* info */, arguments);

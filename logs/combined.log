@@ -1,5 +1,2 @@
-{"time":"2020-01-08 12:39:40","pid":29414,"level":"debug","message":"default error message"}
-{"time":"2020-01-08 12:41:45","pid":29442,"level":"debug","message":"default error message"}
-{"time":"2020-01-08 12:41:45","pid":29442,"level":"debug","message":"default error message"}
-{"time":"2020-01-08 12:41:46","pid":29442,"level":"debug","message":"default error message"}
-{"time":"2020-01-08 12:41:47","pid":29442,"level":"debug","message":"default error message"}
+{"level":"debug","time":"2020-01-08 14:41:17","message":"default error message"}
+{"level":"debug","time":"2020-01-08 14:41:18","message":"default error message"}

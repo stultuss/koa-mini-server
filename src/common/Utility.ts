@@ -18,32 +18,32 @@ const MAX_RECONNECT_COUNT = 3; // normal connect count:1, reconnect count:3, tot
  */
 export namespace CommonTools {
     
-    export const LOGGER_TYPE_INFO = 0;
-    export const LOGGER_TYPE_DEBUG = 1;
-    export const LOGGER_TYPE_WARN = 2;
-    export const LOGGER_TYPE_ERROR = 3;
+    export const LOGGER_TYPE_ERROR = 0;
+    export const LOGGER_TYPE_WARN = 1;
+    export const LOGGER_TYPE_INFO = 2;
+    export const LOGGER_TYPE_DEBUG = 3;
     
     /**
      * 记录日志
      */
-    export function logger(text: any, level: number = LOGGER_TYPE_INFO, isShow: boolean = false) {
+    export function logger(text: any, level: number = LOGGER_TYPE_DEBUG, isShow: boolean = false) {
         // 是否打印日志
         if (process.env.PROJECT_ENV == 'development' || isShow === true) {
             console.log(text);
         }
 
         switch (level) {
+            case LOGGER_TYPE_ERROR:
+                LoggerManager.instance().error(text);
+                break;
+            case LOGGER_TYPE_WARN:
+                LoggerManager.instance().warn(text);
+                break;
             case LOGGER_TYPE_INFO:
                 LoggerManager.instance().info(text);
                 break;
             case LOGGER_TYPE_DEBUG:
                 LoggerManager.instance().debug(text);
-                break;
-            case LOGGER_TYPE_WARN:
-                LoggerManager.instance().warn(text);
-                break;
-            case LOGGER_TYPE_ERROR:
-                LoggerManager.instance().error(text);
                 break;
             default:
                 LoggerManager.instance().info(text);

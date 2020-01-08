@@ -24,30 +24,30 @@ const MAX_RECONNECT_COUNT = 3; // normal connect count:1, reconnect count:3, tot
  */
 var CommonTools;
 (function (CommonTools) {
-    CommonTools.LOGGER_TYPE_INFO = 0;
-    CommonTools.LOGGER_TYPE_DEBUG = 1;
-    CommonTools.LOGGER_TYPE_WARN = 2;
-    CommonTools.LOGGER_TYPE_ERROR = 3;
+    CommonTools.LOGGER_TYPE_ERROR = 0;
+    CommonTools.LOGGER_TYPE_WARN = 1;
+    CommonTools.LOGGER_TYPE_INFO = 2;
+    CommonTools.LOGGER_TYPE_DEBUG = 3;
     /**
      * 记录日志
      */
-    function logger(text, level = CommonTools.LOGGER_TYPE_INFO, isShow = false) {
+    function logger(text, level = CommonTools.LOGGER_TYPE_DEBUG, isShow = false) {
         // 是否打印日志
         if (process.env.PROJECT_ENV == 'development' || isShow === true) {
             console.log(text);
         }
         switch (level) {
+            case CommonTools.LOGGER_TYPE_ERROR:
+                LoggerManager_1.LoggerManager.instance().error(text);
+                break;
+            case CommonTools.LOGGER_TYPE_WARN:
+                LoggerManager_1.LoggerManager.instance().warn(text);
+                break;
             case CommonTools.LOGGER_TYPE_INFO:
                 LoggerManager_1.LoggerManager.instance().info(text);
                 break;
             case CommonTools.LOGGER_TYPE_DEBUG:
                 LoggerManager_1.LoggerManager.instance().debug(text);
-                break;
-            case CommonTools.LOGGER_TYPE_WARN:
-                LoggerManager_1.LoggerManager.instance().warn(text);
-                break;
-            case CommonTools.LOGGER_TYPE_ERROR:
-                LoggerManager_1.LoggerManager.instance().error(text);
                 break;
             default:
                 LoggerManager_1.LoggerManager.instance().info(text);
