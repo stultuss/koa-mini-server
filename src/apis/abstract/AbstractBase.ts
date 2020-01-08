@@ -1,7 +1,8 @@
 import * as _ from 'underscore';
 import * as joi from '@hapi/joi';
 import {Context as KoaContext, Middleware as KoaMiddleware, Request as KoaRequest} from 'koa';
-import {ErrorFormat} from '../../common/ErrorFormat';
+import {ErrorFormat} from '../../common/exception/ErrorFormat';
+import {CommonTools} from '../../common/Utility';
 
 export interface RequestSchema extends KoaRequest {
     aggregatedParams?: { [key: string]: any };
@@ -101,8 +102,9 @@ export abstract class AbstractBase {
     }
     
     public handleError(e: Error | ErrorFormat | number | string): ResponseSchema {
+        // 打印日志
+        CommonTools.logger(e, CommonTools.LOGGER_TYPE_DEBUG);
         
-        // CommonTools.logger(e, CommonTools.LOGGER_TYPE_ERROR);
         // 默认报错
         let response: ResponseSchema = {
             code: 10001

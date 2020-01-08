@@ -39,22 +39,22 @@ var CommonTools;
         //
         // switch (level) {
         //     case LOGGER_TYPE_INFO:
-        //         Logger.info(text);
+        //         LoggerManager.info(text);
         //         break;
         //     case LOGGER_TYPE_DEBUG:
-        //         Logger.debug(text);
+        //         LoggerManager.debug(text);
         //         break;
         //     case LOGGER_TYPE_WARN:
-        //         Logger.warn(text);
+        //         LoggerManager.warn(text);
         //         break;
         //     case LOGGER_TYPE_ERROR:
-        //         Logger.error(text);
+        //         LoggerManager.error(text);
         //         break;
         //     case LOGGER_TYPE_FATAL:
-        //         Logger.fatal(text);
+        //         LoggerManager.fatal(text);
         //         break;
         //     default:
-        //         Logger.info(text);
+        //         LoggerManager.info(text);
         //         break;
         // }
     }

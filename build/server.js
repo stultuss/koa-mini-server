@@ -12,18 +12,19 @@ const Koa = require("koa");
 const koaBody = require("koa-body");
 const koaCors = require("koa2-cors");
 const RouteLoader_1 = require("./apis/RouteLoader");
+const server_1 = require("./config/server");
+const LoggerManager_1 = require("./common/logger/LoggerManager");
 class Server {
     constructor() {
         this._app = new Koa();
         this._initialized = false;
     }
-    init(configs) {
+    init() {
         return __awaiter(this, void 0, void 0, function* () {
-            // 保存配置
-            this._configs = configs;
             // 系统初始化(同步)
             let queue = [];
             queue.push(RouteLoader_1.default.instance().init());
+            queue.push(LoggerManager_1.LoggerManager.instance().init());
             yield Promise.all(queue);
             // 完成初始化
             this._initialized = true;
@@ -31,14 +32,13 @@ class Server {
     }
     start() {
         if (!this._initialized) {
-            console.log('Koa Server not initialized yet');
-            return;
+            throw new Error('Koa Server not initialized yet');
         }
         // 加载中间件
         this._app.use(koaCors({
             origin: (ctx) => {
                 let origin = '*';
-                let allowDomain = this._configs.server.allowDomain;
+                let allowDomain = server_1.serverConfig.allowDomain;
                 for (const i in allowDomain) {
                     if (ctx.header.origin && (ctx.header.origin.indexOf(allowDomain[i]) > -1)) {
                         origin = ctx.header.origin;
@@ -56,8 +56,8 @@ class Server {
         this._app.use(koaBody({ formLimit: '2048kb' }));
         this._app.use(RouteLoader_1.default.instance().routes);
         // 启动服务器，监听端口
-        this._app.listen(this._configs.server.port, this._configs.server.host, () => {
-            console.log(`Koa Server started, listening on: ${this._configs.server.host}:${this._configs.server.port}`);
+        this._app.listen(server_1.serverConfig.port, server_1.serverConfig.host, () => {
+            console.log(`Koa Server started, listening on: ${server_1.serverConfig.host}:${server_1.serverConfig.port}`);
         });
     }
 }

@@ -14,7 +14,8 @@ const util = require("util");
 const request = require("request");
 const os = require("os");
 const child_process_1 = require("child_process");
-const ErrorFormat_1 = require("./ErrorFormat");
+const LoggerManager_1 = require("./logger/LoggerManager");
+const ErrorFormat_1 = require("./exception/ErrorFormat");
 const MIN_REQUEST_DELAY = 500;
 const MAX_REQUEST_DELAY = 7000;
 const MAX_RECONNECT_COUNT = 3; // normal connect count:1, reconnect count:3, total count: 1 + 3
@@ -27,36 +28,31 @@ var CommonTools;
     CommonTools.LOGGER_TYPE_DEBUG = 1;
     CommonTools.LOGGER_TYPE_WARN = 2;
     CommonTools.LOGGER_TYPE_ERROR = 3;
-    CommonTools.LOGGER_TYPE_FATAL = 4;
     /**
      * 记录日志
      */
     function logger(text, level = CommonTools.LOGGER_TYPE_INFO, isShow = false) {
-        // // 是否打印日志
-        // if (process.env.PROJECT_ENV == 'development' || isShow === true) {
-        //     console.log(text);
-        // }
-        //
-        // switch (level) {
-        //     case LOGGER_TYPE_INFO:
-        //         Logger.info(text);
-        //         break;
-        //     case LOGGER_TYPE_DEBUG:
-        //         Logger.debug(text);
-        //         break;
-        //     case LOGGER_TYPE_WARN:
-        //         Logger.warn(text);
-        //         break;
-        //     case LOGGER_TYPE_ERROR:
-        //         Logger.error(text);
-        //         break;
-        //     case LOGGER_TYPE_FATAL:
-        //         Logger.fatal(text);
-        //         break;
-        //     default:
-        //         Logger.info(text);
-        //         break;
-        // }
+        // 是否打印日志
+        if (process.env.PROJECT_ENV == 'development' || isShow === true) {
+            console.log(text);
+        }
+        switch (level) {
+            case CommonTools.LOGGER_TYPE_INFO:
+                LoggerManager_1.LoggerManager.instance().info(text);
+                break;
+            case CommonTools.LOGGER_TYPE_DEBUG:
+                LoggerManager_1.LoggerManager.instance().debug(text);
+                break;
+            case CommonTools.LOGGER_TYPE_WARN:
+                LoggerManager_1.LoggerManager.instance().warn(text);
+                break;
+            case CommonTools.LOGGER_TYPE_ERROR:
+                LoggerManager_1.LoggerManager.instance().error(text);
+                break;
+            default:
+                LoggerManager_1.LoggerManager.instance().info(text);
+                break;
+        }
     }
     CommonTools.logger = logger;
     /**
@@ -178,6 +174,23 @@ var CommonTools;
         };
     }
     CommonTools.promisify = promisify;
+    /**
+     * 完全冻结对象中的所有对象
+     *
+     * @param {Object} obj
+     */
+    function deepFreeze(obj) {
+        Object.freeze(obj);
+        let keys = Object.keys(obj);
+        for (let i of keys) {
+            let v = obj[keys[i]];
+            if (typeof v !== 'object' || Object.isFrozen(v)) {
+                continue;
+            }
+            deepFreeze(v);
+        }
+    }
+    CommonTools.deepFreeze = deepFreeze;
 })(CommonTools = exports.CommonTools || (exports.CommonTools = {}));
 /**
  * 时间函数工具库

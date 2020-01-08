@@ -1,7 +1,7 @@
 import * as joi from '@hapi/joi';
 import {Context as KoaContext} from 'koa';
 import {AbstractBase, MiddlewareNext, RequestSchema} from '../abstract/AbstractBase';
-import {ErrorFormat} from '../../common/ErrorFormat';
+import {ErrorFormat} from '../../common/exception/ErrorFormat';
 
 interface RequestParams {
     name: string

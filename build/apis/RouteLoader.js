@@ -29,19 +29,12 @@ class RouteLoader {
      */
     init() {
         return __awaiter(this, void 0, void 0, function* () {
-            // 读取文件夹中所有文件。
-            let files = yield iterable_readfiles_1.readfiles(__dirname, ['abstract']);
-            if (files.length == 0) {
-                throw new Error("Route not found");
-            }
-            // 过滤出文件名中包含 ".api.js" 的路由文件
-            let filePaths = [];
-            for (let file of files) {
-                if (LibPath.basename(file).match(/.+\.api.js$/) === null) {
-                    continue;
-                }
-                filePaths.push(file);
-            }
+            // 读取文件夹文件
+            let filePaths = yield iterable_readfiles_1.readfiles(__dirname, ['abstract', (filePath) => {
+                    // 当目标是文件夹或者文件名中包含 ".api.js" 时，不需要被过滤
+                    const parsedPath = LibPath.parse(filePath);
+                    return !(parsedPath.ext === '' || parsedPath.base.match(/.+\.api.js$/) !== null);
+                }]);
             // 验证路由
             if (filePaths.length == 0) {
                 throw new Error('Routes is empty!');

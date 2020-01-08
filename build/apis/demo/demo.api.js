@@ -7,9 +7,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+Object.defineProperty(exports, "__esModule", { value: true });
 const joi = require("@hapi/joi");
 const AbstractBase_1 = require("../abstract/AbstractBase");
-const ErrorFormat_1 = require("../../common/ErrorFormat");
+const ErrorFormat_1 = require("../../common/exception/ErrorFormat");
 class Demo extends AbstractBase_1.AbstractBase {
     constructor() {
         super();

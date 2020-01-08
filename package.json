@@ -32,7 +32,8 @@
     "koa2-cors": "^2.0.6",
     "mz": "^2.7.0",
     "request": "^2.88.0",
-    "underscore": "^1.9.2"
+    "underscore": "^1.9.2",
+    "winston": "^3.2.1"
   },
   "devDependencies": {
     "@types/joi": "^14.3.4",

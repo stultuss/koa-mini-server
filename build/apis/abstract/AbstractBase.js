@@ -10,7 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const _ = require("underscore");
 const joi = require("@hapi/joi");
-const ErrorFormat_1 = require("../../common/ErrorFormat");
+const ErrorFormat_1 = require("../../common/exception/ErrorFormat");
+const Utility_1 = require("../../common/Utility");
 class AbstractBase {
     constructor() {
         this.schema = {};
@@ -87,7 +88,8 @@ class AbstractBase {
         };
     }
     handleError(e) {
-        // CommonTools.logger(e, CommonTools.LOGGER_TYPE_ERROR);
+        // 打印日志
+        Utility_1.CommonTools.logger(e, Utility_1.CommonTools.LOGGER_TYPE_DEBUG);
         // 默认报错
         let response = {
             code: 10001

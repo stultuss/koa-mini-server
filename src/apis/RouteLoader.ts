@@ -26,23 +26,18 @@ export default class RouteLoader {
      * 初始化 RouterLoader
      */
     public async init() {
-        // 读取文件夹中所有文件。
-        let files = await readfiles(__dirname, ['abstract']);
-        if (files.length == 0) {
-            throw new Error("Route not found")
-        }
-        // 过滤出文件名中包含 ".api.js" 的路由文件
-        let filePaths = [];
-        for (let file of files) {
-            if (LibPath.basename(file).match(/.+\.api.js$/) === null) {
-                continue;
-            }
-            filePaths.push(file);
-        }
+        // 读取文件夹文件
+        let filePaths = await readfiles(__dirname, ['abstract', (filePath) => {
+            // 当目标是文件夹或者文件名中包含 ".api.js" 时，不需要被过滤
+            const parsedPath = LibPath.parse(filePath);
+            return !(parsedPath.ext === '' || parsedPath.base.match(/.+\.api.js$/) !== null)
+        }]);
+        
         // 验证路由
         if (filePaths.length == 0) {
             throw new Error('Routes is empty!');
         }
+        
         // 加载路由
         for (let filePath of filePaths) {
             await this._loadRouter(filePath);

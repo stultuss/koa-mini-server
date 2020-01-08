@@ -5,8 +5,9 @@ import * as util from 'util';
 import * as request from 'request';
 import * as os from 'os';
 import {spawn} from 'child_process';
-import {ErrorFormat} from './ErrorFormat';
 import {ParsedUrlQueryInput} from 'querystring';
+import {LoggerManager} from './logger/LoggerManager';
+import {ErrorFormat} from './exception/ErrorFormat';
 
 const MIN_REQUEST_DELAY = 500;
 const MAX_REQUEST_DELAY = 7000;
@@ -21,37 +22,33 @@ export namespace CommonTools {
     export const LOGGER_TYPE_DEBUG = 1;
     export const LOGGER_TYPE_WARN = 2;
     export const LOGGER_TYPE_ERROR = 3;
-    export const LOGGER_TYPE_FATAL = 4;
     
     /**
      * 记录日志
      */
     export function logger(text: any, level: number = LOGGER_TYPE_INFO, isShow: boolean = false) {
-        // // 是否打印日志
-        // if (process.env.PROJECT_ENV == 'development' || isShow === true) {
-        //     console.log(text);
-        // }
-        //
-        // switch (level) {
-        //     case LOGGER_TYPE_INFO:
-        //         Logger.info(text);
-        //         break;
-        //     case LOGGER_TYPE_DEBUG:
-        //         Logger.debug(text);
-        //         break;
-        //     case LOGGER_TYPE_WARN:
-        //         Logger.warn(text);
-        //         break;
-        //     case LOGGER_TYPE_ERROR:
-        //         Logger.error(text);
-        //         break;
-        //     case LOGGER_TYPE_FATAL:
-        //         Logger.fatal(text);
-        //         break;
-        //     default:
-        //         Logger.info(text);
-        //         break;
-        // }
+        // 是否打印日志
+        if (process.env.PROJECT_ENV == 'development' || isShow === true) {
+            console.log(text);
+        }
+
+        switch (level) {
+            case LOGGER_TYPE_INFO:
+                LoggerManager.instance().info(text);
+                break;
+            case LOGGER_TYPE_DEBUG:
+                LoggerManager.instance().debug(text);
+                break;
+            case LOGGER_TYPE_WARN:
+                LoggerManager.instance().warn(text);
+                break;
+            case LOGGER_TYPE_ERROR:
+                LoggerManager.instance().error(text);
+                break;
+            default:
+                LoggerManager.instance().info(text);
+                break;
+        }
     }
     
     /**
@@ -129,7 +126,7 @@ export namespace CommonTools {
         let paddingLen = (length > numLength) ? length - numLength + 1 || 0 : 0;
         return Array(paddingLen).join(context) + num;
     }
-  
+    
     /**
      * Refresh regularly generated resource according to now time & last time resource charged time.
      *
@@ -178,6 +175,23 @@ export namespace CommonTools {
                 }]);
             });
         };
+    }
+    
+    /**
+     * 完全冻结对象中的所有对象
+     *
+     * @param {Object} obj
+     */
+    export function deepFreeze(obj: Object) {
+        Object.freeze(obj);
+        let keys = Object.keys(obj);
+        for (let i of keys) {
+            let v = obj[keys[i]];
+            if (typeof v !== 'object' || Object.isFrozen(v)) {
+                continue;
+            }
+            deepFreeze(v);
+        }
     }
 }
 
@@ -615,7 +629,7 @@ export namespace JsonTools {
         try {
             return JSON.parse(str);
         } catch (e) {
-            return defaultValue
+            return defaultValue;
         }
     }
     
