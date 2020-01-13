@@ -1,6 +1,6 @@
 export const ERROR_CODE = {
     0: 'SUCCEED',
-    10000: '%s',
+    1: '%s',
     10001: 'SYS_ERR, msg: %s',
     10002: 'PARAM_INVALID, msg: %s',
     10003: 'REDIS_CONNECT_ERR',

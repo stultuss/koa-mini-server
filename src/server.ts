@@ -7,8 +7,10 @@ import {CacheFactory} from './common/cache/CacheFactory.class';
 
 import {serverConfig} from './config/server.config';
 import {cacheConfig, cacheType} from './config/cache.config';
+import {dbConfig} from './config/db.config';
 import {ErrorFormat} from './common/exception/ErrorFormat';
 import {CommonTools} from './common/Utility';
+import {OrmFactory} from './common/orm/OrmFactory.class';
 
 class Server {
     private _initialized: boolean;
@@ -25,6 +27,7 @@ class Server {
         queue.push(LoggerManager.instance().init());
         queue.push(RouteLoader.instance().init());
         queue.push(CacheFactory.instance().init(cacheType, cacheConfig));
+        queue.push(OrmFactory.instance().init(dbConfig));
         await Promise.all(queue);
         
         // 完成初始化
@@ -33,7 +36,7 @@ class Server {
     
     public start(): void {
         if (!this._initialized) {
-            throw new ErrorFormat(10000, 'Koa Server not initialized yet')
+            throw new ErrorFormat(1, 'Koa Server not initialized yet')
         }
         
         // 加载中间件

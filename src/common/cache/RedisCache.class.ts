@@ -1,10 +1,9 @@
 import * as redis from 'redis';
 import * as _ from 'underscore';
 import AbstractCache from './abstract/AbstractCache';
-import {CommonTools, MathTools} from '../Utility';
+import {CommonTools} from '../Utility';
 import {ErrorFormat} from '../exception/ErrorFormat';
 import {IRedisConfig} from '../../config/cache.config';
-import {LoggerLevels} from '../logger/LoggerManager';
 
 export class RedisCache extends AbstractCache {
     /**

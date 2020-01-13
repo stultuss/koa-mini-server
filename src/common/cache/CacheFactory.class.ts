@@ -10,28 +10,6 @@ export const CACHE_CLASS_DEFAULT_NAME = 'default';
 export const CACHE_CLASS_INSTANCE = 'CACHE_CLASS_%s_%s_%s';    // "CACHE_CLASS_${name}_Redis_0", "CACHE_CLASS_${name}_Memcached_0"
 
 /**
- * default expire time, in seconds
- * default is 1296000 = 2 weeks
- *
- * @type {number}
- */
-export const CACHE_EXPIRE = 1296000;
-
-/**
- * max % variance in actual expiration time <br/>
- *
- * <pre>
- * max variance (in percent) in expiration of cache.
- * Thus, for a variance of 10 if an expiration time of 100 seconds is specified,
- * the item will actually expire in 90-110 seconds (selected randomly).
- * Designed to prevent mass simultaneous expiration of cache objects.
- * </pre>
- *
- * @type {number}
- */
-export const CACHE_VARIANCE = 10;
-
-/**
  * Cache Factory 单例
  * 使用方式：
  * 需要使用 cache 的时候，直接使用即可 CacheFactory::instance()->getCache($shardKey);
