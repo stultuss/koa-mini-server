@@ -1,9 +1,9 @@
 import * as joi from '@hapi/joi';
 import {Context as KoaContext} from 'koa';
-import {AbstractBase, MiddlewareNext, RequestSchema} from '../abstract/AbstractBase';
-import {ErrorFormat} from '../../common/exception/ErrorFormat';
-import {CacheFactory} from '../../common/cache/CacheFactory.class';
-import {DemoService} from '../../service/demo.service';
+import {AbstractBase, MiddlewareNext, RequestSchema} from '../../abstract/AbstractBase';
+import {ErrorFormat} from '../../../common/exception/ErrorFormat';
+import {CacheFactory} from '../../../common/cache/CacheFactory.class';
+import {DemoService} from '../../../service/demo.service';
 
 interface RequestParams {
     id: number,

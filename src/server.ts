@@ -1,5 +1,6 @@
 import * as Koa from 'koa';
 import * as koaBody from 'koa-body';
+import * as koaHelmet from 'koa-helmet';
 import * as koaCors from 'koa2-cors';
 import RouteLoader from './apis/RouteLoader';
 import {LoggerManager} from './common/logger/LoggerManager';
@@ -36,29 +37,18 @@ class Server {
     
     public start(): void {
         if (!this._initialized) {
-            throw new ErrorFormat(1, 'Koa Server not initialized yet')
+            throw new ErrorFormat(1, 'Koa Server not initialized yet');
         }
         
-        // 加载中间件
-        this._app.use(koaCors({
-            origin: (ctx) => {
-                let origin = '*';
-                let allowDomain = serverConfig.allowDomain;
-                for (const i in allowDomain) {
-                    if (ctx.header.origin && (ctx.header.origin.indexOf(allowDomain[i]) > -1)) {
-                        origin = ctx.header.origin;
-                        break;
-                    }
-                }
-                return origin;
-            },
-            exposeHeaders: ['WWW-Authenticate', 'Server-Authorization'],
-            maxAge: 86400,
-            credentials: true,
-            allowMethods: ['GET', 'POST', 'DELETE'],
-            allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+        // 设置中间件
+        this._app.use(koaHelmet({
+            // 设置 Content Security Policy
+            contentSecurityPolicy: {directives: {defaultSrc: [`'self'`]}},
+            // 关闭客户端缓存
+            noCache: true
         }));
-        this._app.use(koaBody({ formLimit: '2048kb' }));
+        this._app.use(koaCors());
+        this._app.use(koaBody({formLimit: '2048kb'}));
         this._app.use(RouteLoader.instance().routes);
         
         // 启动服务器，监听端口
