@@ -42,11 +42,11 @@ export class CacheFactory {
      * @return {Promise<void>}
      */
     public async init(cacheType: CACHE_TYPE = CACHE_TYPE_REDIS, cacheConfig: Array<IRedisConfig>, name: string = CACHE_CLASS_DEFAULT_NAME) {
-        this._initialized = true;
         this._cacheType = cacheType;
         this._cacheServerCount = cacheConfig.length;
         this._cacheServerOptions = cacheConfig;
         this._cacheInstance = {};
+        this._initialized = true;
         
         // 测试连接
         const cache = this.getCache(0, cacheType);
@@ -62,6 +62,10 @@ export class CacheFactory {
      * @return {RedisCache}
      */
     public getCache(shardKey?: number, cacheType: CACHE_TYPE = CACHE_TYPE_REDIS, name: string = CACHE_CLASS_DEFAULT_NAME): RedisCache {
+        if (!this._initialized) {
+            throw new ErrorFormat(100000, 'CacheFactory not initialized yet');
+        }
+        
         if (!cacheType) {
             cacheType = this._cacheType;
         }

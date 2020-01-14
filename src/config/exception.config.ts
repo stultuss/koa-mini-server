@@ -1,15 +1,20 @@
 export const ERROR_CODE = {
     0: 'SUCCEED',
-    1: '%s',
+    1: 'UNKNOWN, msg: %s',
     10001: 'SYS_ERR, msg: %s',
     10002: 'PARAM_INVALID, msg: %s',
     10003: 'REDIS_CONNECT_ERR',
     
     /**
-     * 30001 ~ 30010 Config，系统错误
+     * 100000 ～ 100099 Default，系统错误
      */
-    30001: '[Config] Config file not found! configName: %s',
-    30002: '[Config] Config file or key not found! configName: %s, key: %s',
+    100000: '%s',
+    
+    /**
+     * 300001 ~ 300010 Config，系统错误
+     */
+    300001: '[Config] Config file not found! configName: %s',
+    300002: '[Config] Config file or key not found! configName: %s, key: %s',
     
     /**
      * 700001 ~ 700100 SYSTEM，系统错误
@@ -27,4 +32,5 @@ export const ERROR_CODE = {
     700104: '[Orm] EntityClass not found! EntityClass: %s',
     700105: '[Orm] EntityClass info not found! EntityClass: %s',
     700106: '[Orm] EntityClass can\'t be require! EntityClass: %s',
+    
 };

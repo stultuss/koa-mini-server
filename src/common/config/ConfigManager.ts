@@ -4,11 +4,12 @@ import {CommonTools} from '../Utility';
 import {ErrorFormat} from '../exception/ErrorFormat';
 
 export class ConfigManager {
+  private static _instance: ConfigManager;
+  private _initialized: boolean;
   private _configs: Map<string, Object>;
   
-  private static _instance: ConfigManager;
-  
   private constructor() {
+    this._initialized = false;
     this._configs = new Map<string, Object>();
   }
   
@@ -46,9 +47,11 @@ export class ConfigManager {
         // 保存配置
         this._configs.set(info.name, config);
       } catch (e) {
-        throw new ErrorFormat(1, 'Config file can not load, file: ' + filePath + ', msg: ' + e.message);
+        throw new ErrorFormat(100000, 'Config file can not load, file: ' + filePath + ', msg: ' + e.message);
       }
     });
+  
+    this._initialized = true;
   }
   
   /**
@@ -60,6 +63,10 @@ export class ConfigManager {
    * @return {any}
    */
   public get(configName: string, key?: string | number, errNotFound: boolean = true): any {
+    if (!this._initialized) {
+      throw new ErrorFormat(100000, 'CacheFactory not initialized yet');
+    }
+    
     let config = this._configs.get(configName);
     if (config) {
       if (key == undefined) {
@@ -73,9 +80,9 @@ export class ConfigManager {
 
     if (errNotFound) {
       if (!key && key !== 0) {
-        throw new ErrorFormat(30001, configName);
+        throw new ErrorFormat(300001, configName);
       } else {
-        throw new ErrorFormat(30002, configName, key);
+        throw new ErrorFormat(300002, configName, key);
       }
     } else {
       return null;

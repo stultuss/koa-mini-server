@@ -37,7 +37,7 @@ class Server {
     
     public start(): void {
         if (!this._initialized) {
-            throw new ErrorFormat(1, 'Koa Server not initialized yet');
+            throw new ErrorFormat(100000, 'Koa Server not initialized yet');
         }
         
         // 设置中间件

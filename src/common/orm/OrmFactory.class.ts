@@ -38,10 +38,10 @@ export class OrmFactory {
      * @return {Promise<void>}
      */
     public async init(dbConfig: Array<ConnectionOptions>) {
-        this._initialized = true;
         this._dbConfig = dbConfig;
         await this._copyEntityFile();
         await this._createConnection();
+        this._initialized = true;
     }
     
     /**
@@ -119,7 +119,7 @@ export class OrmFactory {
      */
     public getConnection<T extends BaseEntity>(entity: ObjectType<T>): Connection {
         if (!this._initialized) {
-            throw new ErrorFormat(30001, 'OrmFactory');
+            throw new ErrorFormat(100000, 'OrmFactory not initialized yet');
         }
         
         // className 不存在
@@ -176,7 +176,7 @@ export class OrmFactory {
      */
     public getEntity(entity: Function, shardColumnValue: number = 0): typeof BaseEntity {
         if (!this._initialized) {
-            throw new ErrorFormat(30001, 'OrmFactory');
+            throw new ErrorFormat(100000, 'OrmFactory not initialized yet');
         }
         
         // 如果已经分片过，则直接返回当前的 entity

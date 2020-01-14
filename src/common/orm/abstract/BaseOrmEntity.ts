@@ -50,7 +50,7 @@ export class BaseOrmEntity extends BaseEntity {
 
         // 没有主键数据，返回报错
         if (!this.hasId()) {
-            throw new ErrorFormat(1, `Primary Key value not exist, EntityClass: ${entity.name}`);
+            throw new ErrorFormat(100000, `Primary Key value not exist, EntityClass: ${entity.name}`);
         }
 
         // 根据主键进行存储

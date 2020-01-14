@@ -37,7 +37,7 @@ export default class RouteLoader {
         
         // 验证路由
         if (filePaths.length == 0) {
-            throw new ErrorFormat(1, 'Routes is empty!');
+            throw new ErrorFormat(100000, 'Routes is empty!');
         }
         
         // 加载路由

@@ -113,7 +113,7 @@ export abstract class AbstractBase {
         
         // 默认报错
         let response: ResponseSchema = {
-            code: 10001
+            code: 1
         };
         
         // 根据报错类型处理报错信息
