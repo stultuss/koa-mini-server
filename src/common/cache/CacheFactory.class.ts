@@ -78,7 +78,7 @@ export class CacheFactory {
             // 判断 CacheInstance 的链接状态
             let cache = this._cacheInstance[shardInstanceKey];
             if (cache.connected == false) {
-                throw new ErrorFormat(10003);
+                throw new ErrorFormat(100003);
             }
             return cache;
         } else {

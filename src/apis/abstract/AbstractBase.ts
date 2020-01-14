@@ -64,7 +64,7 @@ export abstract class AbstractBase {
                 // only support joi version less 16
                 joi.validate((ctx.request as RequestSchema).aggregatedParams, joi.object().keys(this.schema), (e: Error) => {
                     if (e) {
-                        throw new ErrorFormat(10002, e.message);
+                        throw new ErrorFormat(100002, e.message);
                     }
                 });
                 await next();

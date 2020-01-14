@@ -1,14 +1,14 @@
 export const ERROR_CODE = {
     0: 'SUCCEED',
     1: 'UNKNOWN, msg: %s',
-    10001: 'SYS_ERR, msg: %s',
-    10002: 'PARAM_INVALID, msg: %s',
-    10003: 'REDIS_CONNECT_ERR',
     
     /**
      * 100000 ～ 100099 Default，系统错误
      */
     100000: '%s',
+    100001: 'SYS_ERR, msg: %s',
+    100002: 'PARAM_INVALID, msg: %s',
+    100003: 'REDIS_CONNECT_ERR',
     
     /**
      * 300001 ~ 300010 Config，系统错误
