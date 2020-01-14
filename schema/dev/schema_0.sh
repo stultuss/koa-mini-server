@@ -3,7 +3,7 @@
 MYSQL_HOST='127.0.0.1'
 MYSQL_USER='root'
 MYSQL_PASSWD='qx#Xim!0Euhwc'
-MYSQL_DBNAME='db_platform'
+MYSQL_DBNAME='db_demo_0'
 
 export MYSQL_PWD=${MYSQL_PASSWD}
 mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWD -e "
@@ -26,7 +26,7 @@ CREATE TABLE logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 "
 
-for i in {0..99}
+for i in {0..9}
 do
   table_no=`printf '%0d' $i`
 

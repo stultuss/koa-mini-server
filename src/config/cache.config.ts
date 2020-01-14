@@ -12,12 +12,20 @@ export interface IRedisConfig {
     }
 }
 
+// fixme: 目前仅实现 redis 的封装，并且 redis 已经可以有集群的功能了，不再需要配置多个 redis。 后期如果增加 memcache，可进行实现。
 export const cacheType = 'Redis';
 export const cacheConfig: Array<IRedisConfig> =
     (serverConfig.env == 'development')
         ? [{
             host: '127.0.0.1',
             port: 6379,
+            options: {
+                connect_timeout: 36000000,
+                retry_delay: 2000
+            }
+        }, {
+            host: '127.0.0.1',
+            port: 6380,
             options: {
                 connect_timeout: 36000000,
                 retry_delay: 2000
@@ -29,7 +37,14 @@ export const cacheConfig: Array<IRedisConfig> =
             options: {
                 password: 'password',
                 connect_timeout: 36000000,
-                retry_delay: 2000,
+                retry_delay: 2000
+            }
+        }, {
+            host: '127.0.0.1',
+            port: 6380,
+            options: {
+                connect_timeout: 36000000,
+                retry_delay: 2000
             }
         }];
 

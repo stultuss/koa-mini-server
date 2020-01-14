@@ -8,7 +8,7 @@ export interface IServerConfig {
 
 export const serverConfig: IServerConfig = {
     env: (process.env.NODE_ENV) ? process.env.NODE_ENV : 'development',
-    name: 'platform',
+    name: 'demo',
     host: '0.0.0.0',
     port: 8080,
     allowDomain: []
