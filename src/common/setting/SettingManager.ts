@@ -3,21 +3,21 @@ import {readfiles} from 'iterable-readfiles';
 import {CommonTools} from '../Utility';
 import {ErrorFormat} from '../exception/ErrorFormat';
 
-export class ConfigManager {
-  private static _instance: ConfigManager;
+export class SettingManager {
+  private static _instance: SettingManager;
   private _initialized: boolean;
-  private _configs: Map<string, Object>;
+  private _settings: Map<string, Object>;
   
   private constructor() {
     this._initialized = false;
-    this._configs = new Map<string, Object>();
+    this._settings = new Map<string, Object>();
   }
   
-  public static instance(): ConfigManager {
-    if (ConfigManager._instance == undefined) {
-      ConfigManager._instance = new ConfigManager();
+  public static instance(): SettingManager {
+    if (SettingManager._instance == undefined) {
+      SettingManager._instance = new SettingManager();
     }
-    return ConfigManager._instance;
+    return SettingManager._instance;
   }
   
   /**
@@ -33,24 +33,24 @@ export class ConfigManager {
       const parsedPath = LibPath.parse(filePath);
       return !(parsedPath.ext == '.json' || parsedPath.ext == '');
     }]);
-  
+    
     // 读取配置表
     filePaths.forEach((filePath) => {
       let info = LibPath.parse(filePath);
       try {
         // 引入配置
-        const config = require(filePath);
-      
+        const setting = require(filePath);
+        
         // 防止对象被篡改
-        CommonTools.deepFreeze(config);
-      
+        CommonTools.deepFreeze(setting);
+        
         // 保存配置
-        this._configs.set(info.name, config);
+        this._settings.set(info.name, setting);
       } catch (e) {
         throw new ErrorFormat(100000, 'Config file can not load, file: ' + filePath + ', msg: ' + e.message);
       }
     });
-  
+    
     this._initialized = true;
   }
   
@@ -64,10 +64,10 @@ export class ConfigManager {
    */
   public get(configName: string, key?: string | number, errNotFound: boolean = true): any {
     if (!this._initialized) {
-      throw new ErrorFormat(100000, 'CacheFactory not initialized yet');
+      throw new ErrorFormat(100000, 'SettingManager not initialized yet');
     }
     
-    let config = this._configs.get(configName);
+    let config = this._settings.get(configName);
     if (config) {
       if (key == undefined) {
         return config;
@@ -77,7 +77,7 @@ export class ConfigManager {
         }
       }
     }
-
+    
     if (errNotFound) {
       if (!key && key !== 0) {
         throw new ErrorFormat(300001, configName);
