@@ -1,17 +1,28 @@
 {
   "compilerOptions": {
-    "target": "es2016",
+    "strict": false,
+    "strictNullChecks": false,
+    "target": "es2022",
     "module": "commonjs",
     "sourceMap": false,
     "rootDir": "src",
     "outDir": "build",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "importHelpers": true,
+    "noEmitHelpers": true,
+    "skipLibCheck": true,
+    "removeComments": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": [
     "src/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "build"
   ]
 }

@@ -1,6 +1,6 @@
-import {Column, Entity, PrimaryColumn} from 'typeorm';
-import {CacheName, HaveRowList, IndexColumn, ShardColumn, ShardTable} from '../common/orm/OrmEntityStorage';
-import {BaseOrmEntity} from '../common/orm/abstract/BaseOrmEntity';
+import {Column, Entity, PrimaryColumn, PrimaryGeneratedColumn} from 'typeorm';
+import {CacheName, HaveRowList, IndexColumn, ShardColumn, ShardTable} from '../lib/orm/OrmEntityStorage';
+import {BaseOrmEntity} from '../lib/orm/abstract/BaseOrmEntity';
 import {serverConfig} from '../config/server.config';
 
 @Entity('demo') // 定义表名
@@ -11,8 +11,11 @@ import {serverConfig} from '../config/server.config';
 @HaveRowList(false) // 是否允许根据 shardColumn 查找多条记录
 
 export class Demo extends BaseOrmEntity {
+    @PrimaryGeneratedColumn()
+    id: number;
+
     @PrimaryColumn()
-    uid: number;
+    uid: string;
 
     @Column()
     openId: string;

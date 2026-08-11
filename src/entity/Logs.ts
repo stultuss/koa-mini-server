@@ -1,6 +1,6 @@
 import {Column, Entity, PrimaryColumn, PrimaryGeneratedColumn} from 'typeorm';
-import {CacheName, HaveRowList, IndexColumn, ShardColumn, ShardTable} from '../common/orm/OrmEntityStorage';
-import {BaseOrmEntity} from '../common/orm/abstract/BaseOrmEntity';
+import {CacheName, HaveRowList, IndexColumn, ShardColumn, ShardTable} from '../lib/orm/OrmEntityStorage';
+import {BaseOrmEntity} from '../lib/orm/abstract/BaseOrmEntity';
 import {serverConfig} from '../config/server.config';
 
 @Entity('logs') // 定义表名

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "author": "fengjie",
   "private": true,
-  "description": "Koa mini server.",
+  "description": "Minimal modern Koa server scaffold (Koa 3 + TypeORM 0.3 + Redis 4).",
   "keywords": [
     "TypeScript",
     "Koa",
@@ -11,6 +11,8 @@
   ],
   "main": "./build/index.js",
   "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
     "start": "tsc && node ./build/index.js"
   },
   "homepage": "https://github.com/niklaus0823/koa-mini-server#readme",
@@ -20,33 +22,33 @@
   },
   "bugs": "https://github.com/niklaus0823/koa-mini-server/issues",
   "engines": {
-    "node": ">=8"
+    "node": ">=22",
+    "npm": ">=10"
   },
   "dependencies": {
-    "@hapi/joi": "^15.1.0",
-    "debug": "^4.1.1",
-    "iterable-readfiles": "^1.0.5",
-    "koa": "^2.6.2",
-    "koa-body": "^4.0.4",
-    "koa-helmet": "^5.2.0",
-    "koa-router": "^7.4.0",
-    "koa2-cors": "^2.0.6",
-    "mysql": "^2.17.1",
-    "mz": "^2.7.0",
-    "redis": "^2.8.0",
-    "request": "^2.88.0",
-    "typeorm": "^0.2.22",
-    "underscore": "^1.9.2",
-    "winston": "^3.2.1"
+    "@koa/cors": "^5.0.0",
+    "@koa/router": "^15.7.0",
+    "axios": "^1.8.3",
+    "dayjs": "^1.11.21",
+    "helmet": "^8.0.0",
+    "joi": "^18.2.3",
+    "koa": "^3.2.1",
+    "koa-body": "^8.0.0",
+    "mime-types": "^3.0.2",
+    "mysql2": "^3.12.0",
+    "process-stats-sampler": "1.1.0",
+    "redis": "^4.6.13",
+    "reflect-metadata": "^0.2.2",
+    "tslib": "^2.8.1",
+    "typeorm": "^0.3.21",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
-    "@types/joi": "^14.3.4",
-    "@types/koa": "^2.0.47",
-    "@types/koa-helmet": "^3.1.2",
-    "@types/koa-router": "^7.0.35",
-    "@types/mz": "0.0.32",
-    "@types/redis": "^2.8.14",
-    "@types/request": "^2.48.4",
-    "@types/underscore": "^1.9.4"
+    "@types/koa": "^3.0.3",
+    "@types/koa__cors": "^5.0.0",
+    "@types/koa__router": "^12.0.4",
+    "@types/mime-types": "^3.0.1",
+    "@types/node": "^26.1.2"
   }
 }

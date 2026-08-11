@@ -1,19 +1,17 @@
-import {AbstractBaseModel} from './abstract/AbstractBase.model';
-import {EntityVo, OrmFactory} from '../common/orm/OrmFactory.class';
-import {ErrorFormat} from '../common/exception/ErrorFormat';
-import {JsonTools} from '../common/Utility';
+import {AbstractModel} from '../lib/model/abstract/AbstractModel';
+import {EntityVo, OrmFactory} from '../lib/orm/OrmFactory.class';
 import {Demo} from '../entity/Demo';
 
 export type DemoVo = EntityVo<Demo>;
 
-export class DemoModel extends AbstractBaseModel<Demo> {
-  
-  private readonly _uid: number;
+export class DemoModel extends AbstractModel<Demo> {
+
+  private readonly _pk: number;
   public isCreate: boolean = false;
-  
-  public constructor(uid: number) {
+
+  public constructor(pk: number) {
     super(Demo);
-    this._uid = Number(uid);
+    this._pk = pk;
   }
   
   /**
@@ -24,7 +22,7 @@ export class DemoModel extends AbstractBaseModel<Demo> {
    */
   public defaultData(data: Object = {}): DemoVo {
     const vo = new Demo();
-    vo.uid = this._uid;
+    vo.uid = data['uid'] || this._pk;
     vo.openId = data['openId'] || '';
     vo.name = data['name'] || '';
     vo.createTime = data['createTime'] || 0;
@@ -32,42 +30,27 @@ export class DemoModel extends AbstractBaseModel<Demo> {
     vo.status = data['status'] || 1;
     return vo;
   }
-  
+
   public create(data?: Object): DemoVo {
-    // 是否创建新对象
     this.isCreate = true;
-    return OrmFactory.createEntity(this._target, this._uid, this.defaultData(data));
+    return OrmFactory.createEntity(this._target, this._pk, this.defaultData(data));
   }
-  
+
   public async get(): Promise<DemoVo> {
-    return await this._get<DemoVo>(this._uid);
+    return await this._get<DemoVo>(this._pk);
   }
   
   public async set(value: DemoVo): Promise<DemoVo> {
     this._saveCache(value);
     return await this.get();
   }
-  
+
   public async format(): Promise<Object> {
     const data = await this.get();
     if (data == null) {
       return null;
     }
-    return {
-      ...data,
-    };
-  }
-  
-  public async simple(): Promise<Object> {
-    const data = await this.get();
-    if (data == null) {
-      return null;
-    }
-    
-    return {
-      uid: data.uid,
-      name: data.name,
-      createTime: data.createTime
-    };
+
+    return {...data,};
   }
 }
