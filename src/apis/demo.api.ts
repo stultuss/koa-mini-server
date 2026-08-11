@@ -25,7 +25,7 @@ class API extends AbstractAPI {
         
         // 测试报错
         if (params.name == 'error') {
-            throw new ErrorMessage(20001, "default error message");
+            throw new ErrorMessage(10000, "default error message");
         }
         
         // 测试缓存

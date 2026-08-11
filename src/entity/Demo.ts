@@ -15,7 +15,7 @@ export class Demo extends BaseOrmEntity {
     id: number;
 
     @PrimaryColumn()
-    uid: string;
+    uid: number;
 
     @Column()
     openId: string;

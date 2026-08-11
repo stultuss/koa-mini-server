@@ -28,6 +28,9 @@ export namespace DemoService {
       demo.loginTime = now;
       await demo.save();
     }
+    
+    // 更新 model 内存缓存，避免 format() 返回首次查询缓存的 null
+    await demoModel.set(demo);
 
     // 记录日志
     const logs = new Logs();

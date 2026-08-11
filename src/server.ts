@@ -12,7 +12,6 @@ import {SettingManager} from './lib/setting/SettingManager';
 import {RouteLoader} from './lib/router/RouteLoader';
 import {CacheFactory} from './lib/cache/CacheFactory.class';
 import {OrmFactory} from './lib/orm/OrmFactory.class';
-import {ShellTools} from './lib/tools/ShellTools';
 
 import {serverConfig} from './config/server.config';
 import {cacheConfig, cacheType} from './config/cache.config';

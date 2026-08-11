@@ -52,12 +52,13 @@ bash schema/dev/schema_1.sh
 
 | 路由 | 说明 |
 | --- | --- |
+| `/check` | 自检接口：返回服务状态与当前时间 |
 | `/v1/demo?id=1&name=xxx` | 演示接口：返回参数；`name=error` 测试报错；`name=redis` 测试缓存；`name=orm` 测试数据库/分表 |
 
 请求返回统一结构：
 
 ```json
-{ "code": 0, "payload": { ... } }
+{ "code": 0, "msg": "succeed", "data": { ... } }
 ```
 
 ## 目录
@@ -67,6 +68,7 @@ bash schema/dev/schema_1.sh
   - `lib/`：基础库（api / cache / exception / logger / model / orm / router / setting / tools）
   - `entity/`：TypeORM 实体（`@ShardTable` / `@ShardColumn` / `@CacheName` 等分表装饰器）
 - `schema/`：数据库初始化脚本
+- `settings/`：JSON 运行配置（SettingManager 加载）
 - `logs/`：按天滚动的运行日志
 
 ## 如何新增接口
@@ -75,13 +77,13 @@ bash schema/dev/schema_1.sh
 
 ```typescript
 import joi from 'joi';
-import {AbstractAPI, ApiContext, MiddlewareNext, RequestSchema} from '../lib/api/abstract/AbstractAPI';
+import {AbstractAPI, ApiContext, ApiNext, ApiRequest, METHOD_ALL} from '../lib/api/abstract/AbstractAPI';
 
 class Demo extends AbstractAPI {
 
     constructor() {
         super();
-        this.method = 'all'; // 'all' | 'post' | 'get'
+        this.method = METHOD_ALL; // 'all' | 'post' | 'get'
         this.uri = '/v1/demo';
         this.type = 'application/json; charset=utf-8';
         this.schema = {
@@ -90,7 +92,7 @@ class Demo extends AbstractAPI {
         };
     }
 
-    public async handle(ctx: ApiContext, req: RequestSchema, next: MiddlewareNext): Promise<any> {
+    public async handle(ctx: ApiContext, req: ApiRequest, next: ApiNext): Promise<any> {
         return req.aggregatedParams;
     }
 }

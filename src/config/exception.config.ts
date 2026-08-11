@@ -2,35 +2,50 @@ export const ERROR_CODE = {
     0: 'SUCCEED',
     1: 'UNKNOWN, msg: %s',
     
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    //-* 框架报错 10000 - 90000
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     /**
-     * 100000 ～ 100099 Default，系统错误
+     * 默认报错
      */
-    100000: '%s',
-    100001: 'SYS_ERR, msg: %s',
-    100002: 'PARAM_INVALID, msg: %s',
-    100003: 'REDIS_CONNECT_ERR',
+    10000: '%s',
+    10001: 'SYS_ERR, msg: %s',
+    10002: 'PARAM_INVALID, msg: %s',
+    10003: 'REDIS_CONNECT_ERR',
     
     /**
-     * 300001 ~ 300010 Config，系统错误
+     * 配置报错
      */
-    300001: '[Config] Config file not found! configName: %s',
-    300002: '[Config] Config file or key not found! configName: %s, key: %s',
+    10011: 'SETTING: Setting file not found! fileName: %s',
+    10012: 'SETTING: Setting file or key not found! fileName: %s, key: %s',
     
     /**
-     * 700001 ~ 700100 SYSTEM，系统错误
+     * 缓存报错
      */
-    700001: '[Cache] Cache type not found! type: %s',
-    700010: '[Cache] You can\'t use this command in current env！env: %s, command: %s',
-    700011: '[Cache] You can\'t use redis.keys() with "*" pattern！pattern: %s',
+    10021: 'CACHE: Cache type not found! type: %s',
     
     /**
-     * 700101 ~ 700200 ORM，系统错误
+     * 映射对象报错
      */
-    700101: '[Orm] Primary Key value not exist! EntityClass: %s',
-    700102: '[Orm] EntityClass is not a list! EntityClass: %s',
-    700103: '[Orm] EntityClass is a list, need input indexValue! EntityClass: %s',
-    700104: '[Orm] EntityClass not found! EntityClass: %s',
-    700105: '[Orm] EntityClass info not found! EntityClass: %s',
-    700106: '[Orm] EntityClass can\'t be require! EntityClass: %s',
+    10031: 'ORM: Primary Key value not exist! EntityClass: %s',
+    10032: 'ORM: EntityClass is not a list! EntityClass: %s',
+    10033: 'ORM: EntityClass is a list, need input indexValue! EntityClass: %s',
+    10034: 'ORM: EntityClass not found! EntityClass: %s',
+    10035: 'ORM: EntityClass info not found! EntityClass: %s',
+    10036: 'ORM: EntityClass can\'t be require! EntityClass: %s',
+    
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    //-* 用户报错 20000 - 30000
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    20000: 'Signature error',
+    20001: 'Signature has expired',
+    20002: 'Permission denied',
+    
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    //-* 业务报错 30001 - 30050
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    30000: 'Configuration not found',
+    30001: 'Configuration value is not in JsonString format. value: %s',
+    30002: 'Configuration has been locked.',
     
 };
