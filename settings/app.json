@@ -1,15 +1,3 @@
 {
-    "name": "koa-mini-server",
-    "rateLimit": {
-        "demo": {
-            "global": {
-                "rate": 1,
-                "capacity": 3
-            },
-            "ip": {
-                "rate": 100,
-                "capacity": 100
-            }
-        }
-    }
+    "name": "koa-mini-server"
 }

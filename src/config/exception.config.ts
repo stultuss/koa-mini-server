@@ -12,7 +12,6 @@ export const ERROR_CODE = {
     10001: 'SYS_ERR, msg: %s',
     10002: 'PARAM_INVALID, msg: %s',
     10003: 'REDIS_CONNECT_ERR',
-    10004: 'RATE_LIMIT_EXCEEDED, retryAfter: %s',
     
     /**
      * 配置报错

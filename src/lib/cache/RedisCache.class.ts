@@ -223,45 +223,6 @@ export class RedisCache extends AbstractCache {
     }
 
     //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-    //-* LOCKER FUNCTIONS
-    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-
-    /**
-     * 获取分布式锁
-     *
-     * @param key - 锁的键
-     * @param value - 锁的值(通常是请求标识)
-     * @param expire - 锁的过期时间(秒)
-     */
-    @Connection()
-    public async lockAcquire(key: string, value: any, expire: number = 30): Promise<boolean> {
-        // 使用 SET key value NX EX seconds 实现原子操作
-        const r = await this._conn.set(key, this._encodeValue(value), {NX: true, EX: expire});
-        return r === 'OK';
-    }
-
-    /**
-     * 释放分布式锁
-     *
-     * @param key - 锁的键
-     * @param value - 锁的值(必须与加锁时的值相同)
-     */
-    @Connection()
-    public async lockRelease(key: string, value: any): Promise<boolean> {
-        // 使用 Lua 脚本确保原子性
-        const script = `
-            if redis.call("get",KEYS[1]) == ARGV[1] then
-                return redis.call("del",KEYS[1])
-            else
-                return 0
-            end
-        `;
-
-        const r = await this._conn.eval(script, {keys: [key], arguments: [this._encodeValue(value)]});
-        return r === 1;
-    }
-
-    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     //-* STRING FUNCTIONS
     //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     /**
@@ -593,47 +554,6 @@ export class RedisCache extends AbstractCache {
             return true;
         }
         return false;
-    }
-
-    /**
-     * 令牌桶限流（Redis Lua 原子实现）
-     *
-     * @param {string} key - 限流键（如 IP / userId）
-     * @param {number} rate - 每秒补充令牌数
-     * @param {number} capacity - 桶容量（最大突发）
-     * @param {number} now - 当前秒级时间戳，缺省取系统时间
-     * @return {Promise<number>} 1=放行；<=0 表示拒绝，且 -返回值 为建议等待秒数（Retry-After）
-     */
-    @Connection()
-    public async tokenBucket(key: string, rate: number, capacity: number, now?: number): Promise<number> {
-        const timestamp = (now != null) ? Math.floor(now) : Math.floor(Date.now() / 1000);
-        const idleTtl = Math.max(60, Math.ceil(capacity / Math.max(rate, 0.0001)));
-        const script = `
-            local tokens = tonumber(redis.call('hget', KEYS[1], 'tokens'))
-            local ts = tonumber(redis.call('hget', KEYS[1], 'ts'))
-            local now = tonumber(ARGV[1])
-            local rate = tonumber(ARGV[2])
-            local capacity = tonumber(ARGV[3])
-            if tokens == nil then tokens = capacity end
-            if ts == nil then ts = now end
-            tokens = math.min(capacity, tokens + (now - ts) * rate)
-            if tokens >= 1 then
-                tokens = tokens - 1
-                redis.call('hmset', KEYS[1], 'tokens', tokens, 'ts', now)
-                redis.call('expire', KEYS[1], ARGV[4])
-                return 1
-            end
-            redis.call('hmset', KEYS[1], 'tokens', tokens, 'ts', now)
-            redis.call('expire', KEYS[1], ARGV[4])
-            local wait = math.ceil((1 - tokens) / rate)
-            if wait < 1 then wait = 1 end
-            return -wait
-        `;
-        const r = await this._conn.eval(script, {
-            keys: [key],
-            arguments: [String(timestamp), String(rate), String(capacity), String(idleTtl)]
-        });
-        return Number(r);
     }
 
     /**
