@@ -1,4 +1,4 @@
-import {BaseEntity, SaveOptions} from 'typeorm';
+import {BaseEntity, Repository, SaveOptions} from 'typeorm';
 import {EntityClass, OrmFactory} from '../OrmFactory.class';
 import {OrmEntityStorage} from '../OrmEntityStorage';
 import {ErrorMessage} from '../../exception/ErrorMessage';
@@ -12,6 +12,16 @@ interface SaveOrmOptions extends SaveOptions {
  * Base abstract entity for get entities, used in ActiveRecord patterns.
  */
 export class BaseOrmEntity extends BaseEntity {
+    /**
+     * 重载 BaseEntity.getRepository()，按分片规则（entity.prototype.shardId）选择对应的数据源，恢复分库
+     *
+     * @return {Repository<T extends BaseEntity>}
+     */
+    public static getRepository<T extends BaseEntity>(this: any): Repository<T> {
+        const connection = OrmFactory.instance().getConnection(this);
+        return connection.getRepository<T>(this);
+    }
+
     /**
      * 重载 BaseEntity.insert()，增加对缓存的操作
      *

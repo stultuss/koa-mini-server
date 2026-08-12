@@ -70,7 +70,9 @@ export class OrmFactory {
             for (const opt of dbConfig[key]) {
                 const glob = (Array.isArray(opt.entities) && opt.entities.length > 0) ? String(opt.entities[0]) : null;
                 if (!glob) continue;
-                if (seen.has(glob)) {
+                // 同一个 config key 下的多个数据源共享同一份 entity 文件（分库场景），
+                // 只有跨 config key 重复才属于配置错误
+                if (seen.has(glob) && seen.get(glob) !== key) {
                     throw new ErrorMessage(10037,
                         `entities "${glob}" duplicated in config [${seen.get(glob)}] and [${key}]. ` +
                         `Each entities glob must belong to only one config.`
