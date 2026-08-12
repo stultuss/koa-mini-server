@@ -151,7 +151,9 @@ export class OrmFactory {
             for (const config of this._dbConfig[key]) {
                 const dataSource = new DataSource(config);
                 await dataSource.initialize();
-                this._dataSources[String(config.database)] = dataSource;
+                // 同一库名可能被多个配置分组引用（如 demo 与 read_demo 指向同一库），
+                // 以 "分组:库名" 唯一存储，避免后初始化分组覆盖前面分组的实体元数据
+                this._dataSources[`${key}:${config.database}`] = dataSource;
             }
         }
         this._initialized = true;
@@ -164,7 +166,25 @@ export class OrmFactory {
      * @returns {DataSource} 返回对应的 DataSource 实例
      */
     public getDataSource(name: any): DataSource {
-        return this._dataSources[String(name)];
+        if (name == null) {
+            return undefined;
+        }
+
+        const key = String(name);
+
+        // 直接命中（支持 "分组:库名" 组合键）
+        if (this._dataSources[key]) {
+            return this._dataSources[key];
+        }
+
+        // 按配置分组名取该组第一个数据源（如 read_demo）
+        if (this._dbConfig[key] && this._dbConfig[key].length > 0) {
+            return this._dataSources[`${key}:${this._dbConfig[key][0].database}`];
+        }
+
+        // 兼容旧的“库名”寻址：默认取第一个配置分组（demo）中同名库的连接
+        const firstKey = Object.keys(this._dbConfig)[0];
+        return this._dataSources[`${firstKey}:${key}`];
     }
 
     /**
@@ -189,7 +209,7 @@ export class OrmFactory {
         // 如果 entity 是否配置了 DbType
         const {DbType} = OrmEntityStorage.instance.get(className);
         if (DbType) {
-            return this.getDataSource(this._dbConfig[DbType][0].database);
+            return this.getDataSource(`${DbType}:${this._dbConfig[DbType][0].database}`);
         }
 
         // 默认返回第一个数据库
