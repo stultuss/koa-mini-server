@@ -27,11 +27,13 @@ class Server {
     }
 
     public async init(): Promise<any> {
-        // 系统初始化(同步)
+        // 配置先于路由加载，保证 API 构造时可读取 settings
+        await SettingManager.instance().init(path.join(__dirname, '..', 'settings'));
+
+        // 系统初始化(并行)
         const queue = [];
         queue.push(LoggerManager.instance().init());
         queue.push(RouteLoader.instance().init(path.join(__dirname, 'apis')));
-        queue.push(SettingManager.instance().init(path.join(__dirname, '..', 'settings')));
         queue.push(CacheFactory.instance().init(cacheType, cacheConfig));
         queue.push(OrmFactory.instance().init(dbConfig));
         await Promise.all(queue);

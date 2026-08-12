@@ -5,6 +5,7 @@ import {CacheFactory} from '../lib/cache/CacheFactory.class';
 import {DemoService} from '../service/demo.service';
 import {TimeTools} from '../lib/tools/TimeTools';
 import {DemoModel} from '../models/demo.model';
+import {SettingManager} from '../lib/setting/SettingManager';
 
 class API extends AbstractAPI {
     
@@ -18,11 +19,17 @@ class API extends AbstractAPI {
             name: joi.string().required()
         };
 
-        // 测试：令牌桶限流（多桶：全局桶 + 按 IP 桶）
-        this.rateLimit = [
-            {rate: 1, capacity: 3, keyBy: () => 'global'}, // 全局桶：整个接口共享（演示用低值）
-            {rate: 100, capacity: 100}                      // 按 IP 桶：放开，避免干扰全局桶观测
-        ];
+        // 令牌桶限流（配置来自 settings/app.json -> rateLimit.demo）
+        const rateLimitCfg = SettingManager.instance().get('app', 'rateLimit', false);
+        if (rateLimitCfg && rateLimitCfg.demo) {
+            this.rateLimit = [];
+            if (rateLimitCfg.demo.global) {
+                this.rateLimit.push({rate: rateLimitCfg.demo.global.rate, capacity: rateLimitCfg.demo.global.capacity, keyBy: () => 'global'});
+            }
+            if (rateLimitCfg.demo.ip) {
+                this.rateLimit.push({rate: rateLimitCfg.demo.ip.rate, capacity: rateLimitCfg.demo.ip.capacity});
+            }
+        }
         // 测试：saveIncr 按 uid 串行化（无 uid 直接放行）
         this.serializeBy = (params) => (params && params.name === 'saveIncr') ? String(params.id) : null;
     }

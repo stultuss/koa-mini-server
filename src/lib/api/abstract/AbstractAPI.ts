@@ -43,11 +43,7 @@ export abstract class AbstractAPI {
     public isResponseSchema: boolean = true; // 是否默认返回结构化数据
     public readonly REQ_SLOW_LOG_THRESHOLD = 3000;
     public extra: any;
-    public rateLimit: {
-        rate: number;
-        capacity: number;
-        keyBy?: (params: Record<string, any>, ctx: ApiContext) => string
-    } = null; // 令牌桶限流，null =关闭
+    public rateLimit: Array<{ rate: number; capacity: number; keyBy?: (params: Record<string, any>, ctx: ApiContext) => string }> | { rate: number; capacity: number; keyBy?: (params: Record<string, any>, ctx: ApiContext) => string } = null; // 令牌桶限流（可配多个桶：全局+按IP等），null=关闭
     public serializeBy: (params: Record<string, any>, ctx: ApiContext) => string | null = null; // 按业务键串行化（如 uid），返回 null 则放行
 
     public abstract handle(ctx: ApiContext, req: ApiRequest, next: ApiNext): Promise<any>;
@@ -87,12 +83,21 @@ export abstract class AbstractAPI {
                 return;
             }
 
-            const {rate, capacity} = this.rateLimit;
-            const keyBy = this.rateLimit.keyBy || ((params: Record<string, any>, c: ApiContext) => c.remoteIp);
-            const key = keyBy(ctx.request.aggregatedParams, ctx);
-            const ok = await CacheFactory.instance().getCache(0).tokenBucket(`rl:${this.uri}:${key}`, rate, capacity);
-            if (!ok) {
-                throw new ErrorMessage(10000, 'rate limit exceeded');
+            const buckets = (Array.isArray(this.rateLimit)) ? this.rateLimit : [this.rateLimit];
+            for (const bucket of buckets) {
+                const keyBy = bucket.keyBy || ((params: Record<string, any>, c: ApiContext) => c.remoteIp);
+                const key = keyBy(ctx.request.aggregatedParams, ctx);
+                const bucketKey = `rl:${this.uri}:${key}`;
+                const cache = CacheFactory.instance().getCache(0);
+                const result = await cache.tokenBucket(bucketKey, bucket.rate, bucket.capacity);
+                if (result !== 1) {
+                    // 拒绝：返回建议重试秒数并埋点
+                    const retryAfter = -result;
+                    ctx.set('Retry-After', String(retryAfter));
+                    await cache.incr(`${bucketKey}:deny`, 3600);
+                    Logger.warn(`rate limit exceeded, key=${bucketKey}, retryAfter=${retryAfter}`);
+                    throw new ErrorMessage(10004, retryAfter);
+                }
             }
 
             await next();

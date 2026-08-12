@@ -602,10 +602,10 @@ export class RedisCache extends AbstractCache {
      * @param {number} rate - 每秒补充令牌数
      * @param {number} capacity - 桶容量（最大突发）
      * @param {number} now - 当前秒级时间戳，缺省取系统时间
-     * @return {Promise<boolean>} true=放行，false=拒绝
+     * @return {Promise<number>} 1=放行；<=0 表示拒绝，且 -返回值 为建议等待秒数（Retry-After）
      */
     @Connection()
-    public async tokenBucket(key: string, rate: number, capacity: number, now?: number): Promise<boolean> {
+    public async tokenBucket(key: string, rate: number, capacity: number, now?: number): Promise<number> {
         const timestamp = (now != null) ? Math.floor(now) : Math.floor(Date.now() / 1000);
         const idleTtl = Math.max(60, Math.ceil(capacity / Math.max(rate, 0.0001)));
         const script = `
@@ -625,13 +625,15 @@ export class RedisCache extends AbstractCache {
             end
             redis.call('hmset', KEYS[1], 'tokens', tokens, 'ts', now)
             redis.call('expire', KEYS[1], ARGV[4])
-            return 0
+            local wait = math.ceil((1 - tokens) / rate)
+            if wait < 1 then wait = 1 end
+            return -wait
         `;
         const r = await this._conn.eval(script, {
             keys: [key],
             arguments: [String(timestamp), String(rate), String(capacity), String(idleTtl)]
         });
-        return r === 1;
+        return Number(r);
     }
 
     /**
