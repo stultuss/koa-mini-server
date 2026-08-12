@@ -1,0 +1,17 @@
+{
+  "threshold": {
+    "core": 4,
+    "min": 100,
+    "max": 3000
+  },
+  "rateLimit": {
+    "global": {
+      "rate": 1,
+      "capacity": 3
+    },
+    "ip": {
+      "rate": 100,
+      "capacity": 100
+    }
+  }
+}

@@ -12,6 +12,7 @@ import {SettingManager} from './lib/setting/SettingManager';
 import {RouteLoader} from './lib/router/RouteLoader';
 import {CacheFactory} from './lib/cache/CacheFactory.class';
 import {OrmFactory} from './lib/orm/OrmFactory.class';
+import {rateGlobalLimit, rateIpLimit} from './lib/middleware/RateLimit';
 
 import {serverConfig} from './config/server.config';
 import {cacheConfig, cacheType} from './config/cache.config';
@@ -47,6 +48,16 @@ class Server {
             throw new ErrorMessage(10000, '[KOA] Server not initialized yet');
         }
 
+        // 桶令牌（配置来自 settings/global.json -> rateLimit）
+        const globalSetting = SettingManager.instance().get('global', undefined, false);
+        if (globalSetting?.rateLimit?.global) {
+            this._app.use(rateGlobalLimit(globalSetting.rateLimit.global)); // 全局级桶
+        }
+        if (globalSetting?.rateLimit?.ip) {
+            this._app.use(rateIpLimit(globalSetting.rateLimit.ip)); // IP级桶
+        }
+
+        // 其他中间件
         this._app.use(async (ctx, next) => {
             await new Promise<void>((resolve) => {
                 koaHelmet({

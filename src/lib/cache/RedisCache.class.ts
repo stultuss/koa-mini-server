@@ -7,6 +7,13 @@ import {Utils} from '../Utils';
 
 type RedisClient = ReturnType<typeof redis.createClient>;
 
+export interface TokenBucketResult {
+    allowed: boolean;   // 是否放行
+    retryAfter: number; // 拒绝时建议等待秒数（>=1，放行为 0）
+    remaining: number;  // 本次消费后桶内剩余令牌数（>=0）
+    reset: number;      // 距桶回满的秒数（>=0）
+}
+
 /**
  * Redis 客户端连接管理装饰器
  */
@@ -602,6 +609,94 @@ export class RedisCache extends AbstractCache {
         });
         await this.expire(key, expire);
         return r;
+    }
+
+    /**
+     * 令牌桶限流（Redis Lua 原子实现，最佳实践）
+     *
+     * - 原子性：单 Lua 脚本完成“读状态 -> 惰性补充 -> 扣减/拒绝 -> 写状态”，并发安全；
+     * - 惰性补充：按毫秒时间差补令牌，无需定时任务；
+     * - 自清理：每次访问刷新空闲 TTL（空桶回满时间 + 1s 余量，下限 60s，上限 7 天），无请求的桶自动过期；
+     * - 参数校验：rate<=0 / capacity<1 视为配置错误直接抛错，由调用方决定 fail-open 或 fail-closed。
+     *
+     * @param {string} key - 限流桶键
+     * @param {number} rate - 每秒补充令牌数（>0）
+     * @param {number} capacity - 桶容量（最大突发，>=1）
+     * @param {number} now - 毫秒时间戳，缺省取系统时间（测试可注入）
+     * @return {Promise<TokenBucketResult>}
+     */
+    @Connection()
+    public async tokenBucket(key: string, rate: number, capacity: number, now?: number): Promise<TokenBucketResult> {
+        if (!Number.isFinite(rate) || rate <= 0) {
+            throw new ErrorMessage(10002, `tokenBucket rate must be > 0, got: ${rate}`);
+        }
+        if (!Number.isFinite(capacity) || capacity < 1) {
+            throw new ErrorMessage(10002, `tokenBucket capacity must be >= 1, got: ${capacity}`);
+        }
+
+        const timestamp = (now != null) ? Math.floor(now) : Date.now();
+        // 空闲 TTL：空桶回满所需时间 + 1s 余量，下限 60s，上限 7 天，避免无效长驻
+        const idleTtl = Math.min(Math.max(Math.ceil(capacity / rate) + 1, 60), 7 * 24 * 3600);
+        const script = `
+            local tokens = tonumber(redis.call('hget', KEYS[1], 'tokens'))
+            local ts = tonumber(redis.call('hget', KEYS[1], 'ts'))
+            local now = tonumber(ARGV[1])
+            local rate = tonumber(ARGV[2])
+            local capacity = tonumber(ARGV[3])
+            local ttl = tonumber(ARGV[4])
+            if tokens == nil then tokens = capacity end
+            if ts == nil then ts = now end
+            if now > ts then
+                tokens = math.min(capacity, tokens + (now - ts) / 1000 * rate)
+            end
+            local allowed = 0
+            local wait = 0
+            local remaining = tokens
+            if tokens >= 1 then
+                tokens = tokens - 1
+                allowed = 1
+                remaining = tokens
+            else
+                wait = math.ceil((1 - tokens) / rate * 1000)
+                if wait < 1 then wait = 1 end
+            end
+            redis.call('hmset', KEYS[1], 'tokens', tokens, 'ts', now)
+            redis.call('expire', KEYS[1], ttl)
+            local reset = math.ceil((capacity - remaining) / rate * 1000)
+            return {allowed, wait, remaining, reset}
+        `;
+        const r = await this._conn.eval(script, {
+            keys: [key],
+            arguments: [String(timestamp), String(rate), String(capacity), String(idleTtl)]
+        });
+        const allowed = Number(r[0]) === 1;
+        const waitMs = Number(r[1]);
+        const resetMs = Number(r[3]);
+        return {
+            allowed,
+            retryAfter: (allowed) ? 0 : Math.max(1, Math.ceil(waitMs / 1000)),
+            remaining: Number(r[2]),
+            reset: Math.max(0, Math.ceil(resetMs / 1000))
+        };
+    }
+
+    /**
+     * 查看令牌桶当前状态（监控/测试用）
+     *
+     * @param {string} key
+     * @return {Promise<{tokens: number; ts: number; ttl: number} | null>} 桶不存在返回 null
+     */
+    @Connection()
+    public async tokenBucketInfo(key: string): Promise<{tokens: number; ts: number; ttl: number} | null> {
+        const data = await this._conn.hGetAll(key);
+        if (!data || data['tokens'] == null) {
+            return null;
+        }
+        return {
+            tokens: Number(data['tokens']),
+            ts: Number(data['ts']),
+            ttl: await this._conn.ttl(key)
+        };
     }
 
     /**
