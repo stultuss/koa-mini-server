@@ -22,12 +22,12 @@ export class DemoModel extends AbstractModel<Demo> {
    */
   public defaultData(data: Object = {}): DemoVo {
     const vo = new Demo();
-    vo.uid = data['uid'] || this._pk;
-    vo.openId = data['openId'] || '';
-    vo.name = data['name'] || '';
-    vo.createTime = data['createTime'] || 0;
-    vo.loginTime = data['lastLoginTime'] || 0;
-    vo.status = data['status'] || 1;
+    vo.uid = data['uid'] ?? this._pk;
+    vo.openId = data['openId'] ?? '';
+    vo.name = data['name'] ?? '';
+    vo.createTime = data['createTime'] ?? 0;
+    vo.loginTime = data['lastLoginTime'] ?? 0;
+    vo.status = data['status'] ?? 1;
     return vo;
   }
 
