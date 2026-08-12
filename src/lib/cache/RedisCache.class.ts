@@ -496,6 +496,145 @@ export class RedisCache extends AbstractCache {
     }
 
     /**
+     * 获取版本号（用于缓存一致性 CAS）
+     *
+     * @param {string} key
+     * @return {Promise<number>}
+     */
+    @Connection()
+    public async getVersion(key: string): Promise<number> {
+        const r = await this._conn.get(key);
+        return (Utils.isEmptyValue(r)) ? 0 : Number(r);
+    }
+
+    /**
+     * 版本号 +1（写操作后调用，使在途读请求的 CAS 失败）
+     *
+     * @param {string} key
+     * @return {Promise<number>}
+     */
+    @Connection()
+    public async incrVersion(key: string): Promise<number> {
+        return await this._conn.incr(key);
+    }
+
+    /**
+     * 版本号匹配才写入单个 hash 字段（Lua CAS，防止并发读把旧值写回缓存）
+     *
+     * @param {string} key
+     * @param {number | string} field
+     * @param value
+     * @param {string} versionKey
+     * @param {number | string} expectedVersion
+     * @return {Promise<boolean>}
+     */
+    @Connection()
+    public async hSetIfVersion(key: string, field: number | string, value: any, versionKey: string, expectedVersion: number | string): Promise<boolean> {
+        const script = `
+            local v = redis.call('get', KEYS[2]) or '0'
+            if v == ARGV[1] then
+                redis.call('hset', KEYS[1], ARGV[2], ARGV[3])
+                return 1
+            end
+            return 0
+        `;
+        const r = await this._conn.eval(script, {
+            keys: [key, versionKey],
+            arguments: [String(expectedVersion), String(field), this._encodeValue(value)]
+        });
+
+        if (r === 1) {
+            await this.expire(key);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 版本号匹配才批量写入 hash（Lua CAS，防止并发读把旧值写回缓存）
+     *
+     * @param {string} key
+     * @param {Record<string, any>} obj
+     * @param {string} versionKey
+     * @param {number | string} expectedVersion
+     * @return {Promise<boolean>}
+     */
+    @Connection()
+    public async hMSetIfVersion(key: string, obj: Record<string, any>, versionKey: string, expectedVersion: number | string): Promise<boolean> {
+        if (Utils.isEmptyValue(obj)) {
+            return true;
+        }
+
+        const script = `
+            local v = redis.call('get', KEYS[2]) or '0'
+            if v == ARGV[1] then
+                local i = 2
+                while i <= #ARGV do
+                    redis.call('hset', KEYS[1], ARGV[i], ARGV[i + 1])
+                    i = i + 2
+                end
+                return 1
+            end
+            return 0
+        `;
+
+        const args: Array<string> = [String(expectedVersion)];
+        for (const field of Object.keys(obj)) {
+            args.push(String(field), this._encodeValue(obj[field]));
+        }
+
+        const r = await this._conn.eval(script, {
+            keys: [key, versionKey],
+            arguments: args
+        });
+
+        if (r === 1) {
+            await this.expire(key);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 令牌桶限流（Redis Lua 原子实现）
+     *
+     * @param {string} key - 限流键（如 IP / userId）
+     * @param {number} rate - 每秒补充令牌数
+     * @param {number} capacity - 桶容量（最大突发）
+     * @param {number} now - 当前秒级时间戳，缺省取系统时间
+     * @return {Promise<boolean>} true=放行，false=拒绝
+     */
+    @Connection()
+    public async tokenBucket(key: string, rate: number, capacity: number, now?: number): Promise<boolean> {
+        const timestamp = (now != null) ? Math.floor(now) : Math.floor(Date.now() / 1000);
+        const idleTtl = Math.max(60, Math.ceil(capacity / Math.max(rate, 0.0001)));
+        const script = `
+            local tokens = tonumber(redis.call('hget', KEYS[1], 'tokens'))
+            local ts = tonumber(redis.call('hget', KEYS[1], 'ts'))
+            local now = tonumber(ARGV[1])
+            local rate = tonumber(ARGV[2])
+            local capacity = tonumber(ARGV[3])
+            if tokens == nil then tokens = capacity end
+            if ts == nil then ts = now end
+            tokens = math.min(capacity, tokens + (now - ts) * rate)
+            if tokens >= 1 then
+                tokens = tokens - 1
+                redis.call('hmset', KEYS[1], 'tokens', tokens, 'ts', now)
+                redis.call('expire', KEYS[1], ARGV[4])
+                return 1
+            end
+            redis.call('hmset', KEYS[1], 'tokens', tokens, 'ts', now)
+            redis.call('expire', KEYS[1], ARGV[4])
+            return 0
+        `;
+        const r = await this._conn.eval(script, {
+            keys: [key],
+            arguments: [String(timestamp), String(rate), String(capacity), String(idleTtl)]
+        });
+        return r === 1;
+    }
+
+    /**
      * redis.hDel
      *
      * @param {string} key

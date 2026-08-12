@@ -4,6 +4,7 @@ import {ErrorMessage} from '../../exception/ErrorMessage';
 import {JsonTools} from '../../tools/JsonTools';
 import {Logger} from '../../Logger';
 import {Utils} from '../../Utils';
+import {CacheFactory} from '../../cache/CacheFactory.class';
 
 export const METHOD_ALL = 'all';
 export const METHOD_POST = 'post';
@@ -42,6 +43,12 @@ export abstract class AbstractAPI {
     public isResponseSchema: boolean = true; // 是否默认返回结构化数据
     public readonly REQ_SLOW_LOG_THRESHOLD = 3000;
     public extra: any;
+    public rateLimit: {
+        rate: number;
+        capacity: number;
+        keyBy?: (params: Record<string, any>, ctx: ApiContext) => string
+    } = null; // 令牌桶限流，null =关闭
+    public serializeBy: (params: Record<string, any>, ctx: ApiContext) => string | null = null; // 按业务键串行化（如 uid），返回 null 则放行
 
     public abstract handle(ctx: ApiContext, req: ApiRequest, next: ApiNext): Promise<any>;
 
@@ -58,12 +65,103 @@ export abstract class AbstractAPI {
             this._errorHandler(),       // 全局错误处理
             this._requestLogger(),      // 请求日志
             this._parseParams(),        // 参数解析
+            this._rateLimit(),          // 令牌桶限流
+            this._serialize(),          // 按业务键串行化（请求队列）
             this._validate(),           // 参数验证
             this._performanceMonitor(), // 性能监控
             this._execute(),            // 业务执行
             this._responseLogger()      // 响应日志
         ];
     };
+
+    /**
+     * 令牌桶限流中间件（默认按请求 IP 作为限流键）
+     *
+     * @return {KoaMiddleware}
+     * @protected
+     */
+    protected _rateLimit(): KoaMiddleware {
+        return async (ctx: ApiContext, next: ApiNext): Promise<void> => {
+            if (!this.rateLimit) {
+                await next();
+                return;
+            }
+
+            const {rate, capacity} = this.rateLimit;
+            const keyBy = this.rateLimit.keyBy || ((params: Record<string, any>, c: ApiContext) => c.remoteIp);
+            const key = keyBy(ctx.request.aggregatedParams, ctx);
+            const ok = await CacheFactory.instance().getCache(0).tokenBucket(`rl:${this.uri}:${key}`, rate, capacity);
+            if (!ok) {
+                throw new ErrorMessage(10000, 'rate limit exceeded');
+            }
+
+            await next();
+        };
+    }
+
+    /**
+     * 请求串行化中间件：按业务键（如 uid）排队，同一键串行执行；无键直接放行
+     *
+     * @return {KoaMiddleware}
+     * @protected
+     */
+    protected _serialize(): KoaMiddleware {
+        return async (ctx: ApiContext, next: ApiNext): Promise<void> => {
+            if (!this.serializeBy) {
+                await next();
+                return;
+            }
+
+            const params = ctx.request.aggregatedParams || {};
+            const serializeKey = this.serializeBy(params, ctx);
+            if (serializeKey == null || serializeKey === '') {
+                await next();
+                return;
+            }
+
+            const lockKey = `serial:${this.uri}:${serializeKey}`;
+            const lockValue = `${process.pid}:${Date.now()}:${Math.random()}`;
+            const cache = CacheFactory.instance().getCache(0);
+
+            if (!await this._acquireLock(cache, lockKey, lockValue)) {
+                throw new ErrorMessage(10000, 'request queue timeout');
+            }
+
+            try {
+                await next();
+            } finally {
+                await cache.lockRelease(lockKey, lockValue);
+            }
+        };
+    }
+
+    /**
+     * 轮询获取分布式锁（带超时）
+     *
+     * @param {RedisCache} cache
+     * @param {string} lockKey
+     * @param {string} lockValue
+     * @param {number} timeoutMs
+     * @param {number} intervalMs
+     * @return {Promise<boolean>}
+     * @private
+     */
+    private async _acquireLock(
+        cache: any,
+        lockKey: string,
+        lockValue: string,
+        timeoutMs: number = 5000,
+        intervalMs: number = 20
+    ): Promise<boolean> {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            if (await cache.lockAcquire(lockKey, lockValue, 30)) {
+                return true;
+            }
+            await Utils.sleep(intervalMs);
+        }
+        return false;
+    }
 
     /**
      * 解析参数并格式化数字类型的参数
