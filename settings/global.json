@@ -1,17 +1,36 @@
 {
   "threshold": {
     "core": 4,
-    "min": 100,
-    "max": 3000
+    "min": 200,
+    "max": 2000
+  },
+  "inflight": {
+    "max": 2000,
+    "maxOnFail": 200
+  },
+  "timeout": {
+    "default": 5000,
+    "overrides": {},
+    "excludes": [
+      "/v2/trade/complete/"
+    ]
+  },
+  "rateIpLimit": {
+    "rate": 100,
+    "capacity": 100
   },
   "rateLimit": {
     "global": {
-      "rate": 1,
-      "capacity": 3
+      "rate": 2000,
+      "capacity": 6000
     },
-    "ip": {
-      "rate": 100,
-      "capacity": 100
-    }
+    "api": {
+      "rate": 500,
+      "capacity": 500,
+      "apis": [
+        "/v1/demo"
+      ]
+    },
+    "failMode": "open"
   }
 }

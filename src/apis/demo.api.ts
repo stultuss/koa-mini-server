@@ -5,6 +5,7 @@ import {CacheFactory} from '../lib/cache/CacheFactory.class';
 import {DemoService} from '../service/demo.service';
 import {TimeTools} from '../lib/tools/TimeTools';
 import {DemoModel} from '../models/demo.model';
+import {Utils} from '../lib/Utils';
 
 class API extends AbstractAPI {
     
@@ -33,6 +34,11 @@ class API extends AbstractAPI {
         // 测试缓存
         if (params.name == 'redis') {
             response.incr = await CacheFactory.instance().getCache().incr('INCR');
+        }
+
+        // 测试超时熔断（挂起指定毫秒，缺省 2s）
+        if (params.name == 'sleep') {
+            await Utils.sleep(Number(params.ms) || 2000);
         }
         
         // 测试数据库 / orm

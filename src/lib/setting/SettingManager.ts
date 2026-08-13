@@ -108,6 +108,20 @@ export class SettingManager {
     }
 
     /**
+     * 生成动态配置读取回调（getter）：每次调用实时读取当前配置，
+     * gRPC 下发（sync）后自动取到新值，供中间件动态生效使用；
+     * 配置或键不存在时返回 null（errNotFound 缺省 false），不会抛错。
+     *
+     * @param {string} configName - 配置文件/分组名（如 'global'）
+     * @param {string | number} key - 配置键（如 'rateLimit' / 'inflight' / 'timeout'）
+     * @param {boolean} errNotFound - 缺失时是否抛错，缺省 false（返回 null）
+     * @return {() => any} 实时读取的 getter
+     */
+    public dynamicCallback(configName: string, key?: string | number, errNotFound: boolean = false): () => any {
+        return () => this.get(configName, key, errNotFound);
+    }
+
+    /**
      * 从配置服务中同步配置
      *
      * @param {(lastUpdateTime: number) => Promise<string>} grpc_config_watch_func grpc watch function

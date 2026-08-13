@@ -12,7 +12,12 @@ import {SettingManager} from './lib/setting/SettingManager';
 import {RouteLoader} from './lib/router/RouteLoader';
 import {CacheFactory} from './lib/cache/CacheFactory.class';
 import {OrmFactory} from './lib/orm/OrmFactory.class';
-import {rateGlobalLimit, rateIpLimit} from './lib/middleware/RateLimit';
+import {TaskManager} from './lib/task/TaskManager';
+import {ShellTools} from './lib/tools/ShellTools';
+import {InflightLimiter} from './lib/inflight/InflightLimiter';
+import {requestTimeout} from './lib/middleware/TimeoutLimit';
+import {rateLimit} from './lib/middleware/RateLimit';
+import {rateIpLimit} from './lib/middleware/RateIpLimit';
 
 import {serverConfig} from './config/server.config';
 import {cacheConfig, cacheType} from './config/cache.config';
@@ -48,14 +53,25 @@ class Server {
             throw new ErrorMessage(10000, '[KOA] Server not initialized yet');
         }
 
-        // 桶令牌（配置来自 settings/global.json -> rateLimit）
-        const globalSetting = SettingManager.instance().get('global', undefined, false);
-        if (globalSetting?.rateLimit?.global) {
-            this._app.use(rateGlobalLimit(globalSetting.rateLimit.global)); // 全局级桶
-        }
-        if (globalSetting?.rateLimit?.ip) {
-            this._app.use(rateIpLimit(globalSetting.rateLimit.ip)); // IP级桶
-        }
+        // 启动脚本
+        TaskManager.instance().init([
+            [ShellTools.monitor, [path.join(__dirname, '..', 'stats.log'), 30], 30]
+        ]);
+
+        // 使用 callback 的方法把配置中心的动态数据传递出来。
+        const dynamicCallback = SettingManager.instance().dynamicCallback.bind(SettingManager.instance());
+
+        // 本地并发计数器（进程内，保护单机 Event Loop；Redis 故障时降级收紧阈值）
+        this._app.use(InflightLimiter.instance().middleware(dynamicCallback('global', 'inflight', false)));
+
+        // 请求超时熔断（整条请求链路超时，超时返回结构化错误并释放并发槽位；配置动态生效）
+        this._app.use(requestTimeout(dynamicCallback('global', 'timeout', false)));
+
+        // 进程 IP 级桶（进程内 LRU）
+        this._app.use(rateIpLimit(dynamicCallback('global', 'rateIpLimit', false)));
+
+        // 全局桶 + 接口桶（配置来自 settings/global.json -> rateLimit，保护共享 MySQL）
+        this._app.use(rateLimit(dynamicCallback('global', 'rateLimit', false), InflightLimiter.instance()));
 
         // 其他中间件
         this._app.use(async (ctx, next) => {
