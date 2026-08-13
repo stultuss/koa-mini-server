@@ -1,3 +1,4 @@
 *.map
 build
 logs/*
+stats.log
