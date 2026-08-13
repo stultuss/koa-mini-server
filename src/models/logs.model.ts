@@ -22,12 +22,12 @@ export class LogsModel extends AbstractModel<Logs> {
    */
   public defaultData(data: Object = {}): LogsVo {
     const vo = new Logs();
-    vo.uid = data['uid'] || this._pk;
-    vo.type = data['type'] || 0;
-    vo.count = data['count'] || 0;
-    vo.remain = data['remain'] || 0;
-    vo.memo = data['memo'] || '';
-    vo.time = data['time'] || 0;
+    vo.uid = data['uid'] ?? this._pk;
+    vo.type = data['type'] ?? 0;
+    vo.count = data['count'] ?? 0;
+    vo.remain = data['remain'] ?? 0;
+    vo.memo = data['memo'] ?? '';
+    vo.time = data['time'] ?? 0;
     return vo;
   }
 

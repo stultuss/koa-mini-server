@@ -176,12 +176,12 @@ export class ShellTools {
      * Node.js 运行内存和CPU监控
      *
      * @param {string} filename
-     * @param {number} interval
+     * @param {number} interval - lag probe wait in second
      * @return {Promise<void>}
      */
     public static async monitor(filename: string = '/tmp/stats.log', interval: number = 30): Promise<void> {
         try {
-            await processStatsSample(filename);
+            await processStatsSample(filename, {lag: interval * 1000});
         } catch (e) {
             Logger.warn(e instanceof Error ? e.message : String(e));
         }

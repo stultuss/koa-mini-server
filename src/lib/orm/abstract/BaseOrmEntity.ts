@@ -40,12 +40,11 @@ export class BaseOrmEntity extends BaseEntity {
             const shardValue = this[ShardColumn];
             const indexValue = this[IndexColumn];
 
-            // 仅在有缓存索引的情况下才更新缓存索引，如果缓存索引不存在，等下次数据库查询时更新全量的缓存索引。因为没有索引的情况下插入索引，会导致缓存不一致。
-            // 缓存索引不存在的情况：
-            //    情况1: 缓存索引到期失效
-            //    情况2: 缓存索引被误删除（不考虑手动删除某一条缓存索引的情况）
-            if ((await OrmFactory.getVoIndexCache(entity, shardValue)).length > 0) {
-                await OrmFactory.setVoListIndexCache(entity, shardValue, String(indexValue));
+            // 写缓存：版本号 +1（使在途读回填失效）后由写者直接写入新值；
+            // 并发写同分片不同行时字段互不冲突，无需 CAS/重试
+            if (shardValue != null && indexValue != null) {
+                await OrmFactory.incrVoVersion(entity, shardValue);
+                await OrmFactory.setVoCache(entity, shardValue, indexValue, this);
             }
 
             return this;
@@ -83,16 +82,11 @@ export class BaseOrmEntity extends BaseEntity {
             // 更新数据库操作
             await entity.getRepository().save(this);
 
-            // 仅在有缓存索引的情况下才更新缓存索引，如果缓存索引不存在，等下次数据库查询时更新全量的缓存索引。因为没有索引的情况下插入索引，会导致缓存不一致。
-            // 缓存索引不存在的情况：
-            //    情况1: 缓存索引到期失效
-            //    情况2: 缓存索引被误删除（不考虑手动删除某一条缓存索引的情况）
-            if ((await OrmFactory.getVoIndexCache(entity, shardValue)).length > 0) {
-                await OrmFactory.setVoListIndexCache(entity, shardValue, String(indexValue));
+            // 版本号 +1，使在途读请求的 CAS 失效；随后由写者直接写入新值（写库成功后写入）
+            if (shardValue != null && indexValue != null) {
+                await OrmFactory.incrVoVersion(entity, shardValue);
+                await OrmFactory.setVoCache(entity, shardValue, indexValue, this);
             }
-
-            // 双删策略，延迟删除缓存
-            this.delayCache(entity, shardValue, indexValue, 300, 0);
 
             return this;
         } catch (e) {
@@ -123,17 +117,17 @@ export class BaseOrmEntity extends BaseEntity {
             const shardValue = this[ShardColumn];
             const indexValue = this[IndexColumn];
 
+            // 版本号 +1，使在途读请求的 CAS 失败，杜绝脏缓存回写
+            await OrmFactory.incrVoVersion(entity, shardValue);
+
             // 更新数据库前删除缓存(防止数据库操作失败，缓存已更新)
             await OrmFactory.removeVoCache(entity, shardValue, indexValue);
 
             // 更新数据库操作
             await entity.getRepository().remove(this);
 
-            // 数据库数据删除，删除该条缓存索引
-            await OrmFactory.removeVoListIndexCache(entity, shardValue, indexValue);
-
-            // 双删策略，延迟删除缓存
-            this.delayCache(entity, shardValue, indexValue, 300, 0);
+            // 删除删除期间被并发读回填的脏缓存
+            await OrmFactory.removeVoCache(entity, shardValue, indexValue);
 
         } catch (e) {
             Logger.warn(`Entity ${entity.name} remove failed:`, {
@@ -186,40 +180,4 @@ export class BaseOrmEntity extends BaseEntity {
         });
     };
 
-    /**
-     * 延时淘汰缓存
-     *
-     * @param {EntityClass} entity
-     * @param {string | number} shardValue
-     * @param {string | number} indexValue
-     * @param {number} delay
-     * @param {number} times
-     * @param {NodeJS.Timeout} lastTimeout
-     */
-    private delayCache<T extends BaseOrmEntity>(
-        entity: EntityClass<T>,
-        shardValue: string | number,
-        indexValue: string | number,
-        delay: number = 300,
-        times: number = 0,
-        lastTimeout: NodeJS.Timeout = null
-    ) {
-        const MAX_RETRY = 3;
-
-        if (times > MAX_RETRY) {
-            Logger.warn(`Cache removal failed after ${MAX_RETRY} attempts for ${entity.name}`);
-            if (lastTimeout !== null) clearTimeout(lastTimeout);
-            return;
-        }
-
-        const timeoutId = setTimeout(async () => {
-            try {
-                await OrmFactory.removeVoCache(entity, shardValue, indexValue);
-                if (lastTimeout !== null) clearTimeout(lastTimeout);
-            } catch (error) {
-                Logger.warn(`Cache removal retry ${times + 1}/${MAX_RETRY} failed:`, error);
-                this.delayCache(entity, shardValue, indexValue, delay, times + 1, lastTimeout);
-            }
-        }, delay);
-    }
 }

@@ -6,9 +6,9 @@ import {serverConfig} from '../config/server.config';
 @Entity('logs') // 定义表名
 @CacheName(`${serverConfig.name}:logs`) // 定义缓存键
 @ShardTable(1) // 定义分表数量
-@ShardColumn('id') // 定义数据分片字段
+@ShardColumn('uid') // 定义数据分片字段
 @IndexColumn('id') // 定义缓存索引字段，通常是主键或索引或联合主键靠右那个
-@HaveRowList(false) // 是否允许根据 shardColumn 查找多条记录
+@HaveRowList(true) // 是否允许根据 shardColumn 查找多条记录
 
 export class Logs extends BaseOrmEntity {
     @PrimaryGeneratedColumn()

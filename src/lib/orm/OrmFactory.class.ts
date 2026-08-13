@@ -15,8 +15,6 @@ export type EntityVo<T extends BaseOrmEntity> = T;
 export type EntityVoList<T extends BaseOrmEntity> = { [key: string]: EntityVo<T> }; // 一般是 shardColumn 或 indexColumn
 export type EntityClass<T extends BaseOrmEntity> = ObjectType<T>;
 
-const INDEX_CACHE = ':index';
-
 export class OrmFactory {
 
     private static _instance: OrmFactory;
@@ -374,20 +372,15 @@ export class OrmFactory {
 
         // 缓存未命中，数据库命中，将数据塞入缓存，并返回 entity
         if (!cacheEntity) {
+            // 读取前记录版本号，写回时做 CAS，防止并发写把旧值覆盖成新值后又把旧缓存写回
+            const version = await this.getVoVersion<T>(target, shardValue);
+
             const dataList = await this.select<T>(target, shardValue, indexValue);
             if (dataList && dataList.length > 0) {
                 // 将数据库结果转成以 indexColumn 为 key 的 k-v 对象，通过 hMSet 塞回缓存
                 const entityVoList = this._coverRowListToEntityList<T>(target, dataList);
                 const entityVo = entityVoList[indexValue];
-                await this.setVoCache<T>(target, shardValue, indexValue, entityVo);
-
-                // 仅在有缓存索引的情况下才更新缓存索引，如果缓存索引不存在，等下次数据库查询时更新全量的缓存索引。因为没有索引的情况下插入索引，会导致缓存不一致。
-                // 缓存索引不存在的情况：
-                //    情况1: 缓存索引到期失效
-                //    情况2: 缓存索引被误删除（不考虑手动删除某一条缓存索引的情况）
-                if ((await this.getVoIndexCache(entity, shardValue)).length > 0) {
-                    await this.setVoListIndexCache<T>(target, shardValue, String(indexValue));
-                }
+                await this.setVoCacheIfVersion<T>(target, shardValue, indexValue, entityVo, version);
 
                 return entityVo;
             }
@@ -422,23 +415,19 @@ export class OrmFactory {
             indexValue = shardValue;
         }
 
-        // 获取索引列表, 如果有索引列表，但是不包含当前的 indexValue，则直接返回 null
-        const indexList = await this.getVoIndexCache<T>(target, shardValue);
-        if (indexList.length > 0 && !indexList.includes(String(indexValue))) {
-            return null;
-        }
-
         // 缓存命中，需要将 data 封装成 entity 再返回
         const cacheEntity = await this.getVoCache<T>(target, shardValue, indexValue);
 
         // 缓存未命中，数据库命中，将数据塞入缓存，并返回 entity
         if (!cacheEntity) {
+            // 读取前记录版本号，写回时做 CAS，防止并发写把旧值覆盖成新值后又把旧缓存写回
+            const version = await this.getVoVersion<T>(target, shardValue);
+
             const dataList = await this.select<T>(target, shardValue);
             if (dataList && dataList.length > 0) {
                 // 将数据库结果转成以 indexColumn 为 key 的 k-v 对象，通过 hMSet 塞回缓存
                 const entityVoList = this._coverRowListToEntityList<T>(target, dataList);
-                await this.setVoListCache<T>(target, shardValue, entityVoList);
-                await this.setVoListIndexCache<T>(target, shardValue, Object.keys(entityVoList).map(String));
+                await this.setVoListCacheIfVersion<T>(target, shardValue, entityVoList, version);
                 return entityVoList[indexValue];
             }
         }
@@ -471,12 +460,14 @@ export class OrmFactory {
 
         // 缓存未命中，数据库命中，将数据塞入缓存，并返回 entity
         if (Object.keys(cacheVoList).length == 0) {
+            // 读取前记录版本号，写回时做 CAS，防止并发写把旧值覆盖成新值后又把旧缓存写回
+            const version = await this.getVoVersion<T>(target, shardValue);
+
             const dataList = await this.select<T>(target, shardValue);
             if (dataList && dataList.length > 0) {
                 // 将数据库结果转成以 indexColumn 为 key 的 k-v 对象，通过 hMSet 塞回缓存
                 const entityVoList = this._coverRowListToEntityList<T>(target, dataList);
-                await this.setVoListCache<T>(target, shardValue, entityVoList);
-                await this.setVoListIndexCache<T>(target, shardValue, Object.keys(entityVoList).map(String));
+                await this.setVoListCacheIfVersion<T>(target, shardValue, entityVoList, version);
                 return entityVoList;
             }
         }
@@ -507,7 +498,62 @@ export class OrmFactory {
     }
 
     /**
-     * 将 entity vo 保存到缓存
+     * 获取缓存版本号
+     *
+     * @param {EntityClass} entity
+     * @param {string | number} shardValue
+     * @return {Promise<number>}
+     * @private
+     */
+    public static async getVoVersion<T extends BaseOrmEntity>(
+        entity: EntityClass<T>,
+        shardValue: string | number
+    ): Promise<number> {
+        const versionKey = this.versionKey(entity.name, shardValue);
+        return await CacheFactory.instance().getCache(shardValue).getVersion(versionKey);
+    }
+
+    /**
+     * 缓存版本号 +1（写操作后调用，使在途读请求的 CAS 失败）
+     *
+     * @param {EntityClass} entity
+     * @param {string | number} shardValue
+     * @return {Promise<number>}
+     * @private
+     */
+    public static async incrVoVersion<T extends BaseOrmEntity>(
+        entity: EntityClass<T>,
+        shardValue: string | number
+    ): Promise<number> {
+        const versionKey = this.versionKey(entity.name, shardValue);
+        return await CacheFactory.instance().getCache(shardValue).incrVersion(versionKey);
+    }
+
+    /**
+     * 版本号匹配才写入单个 entity vo（Lua CAS）
+     *
+     * @param {EntityClass} entity
+     * @param {string | number} shardValue
+     * @param {string | number} indexValue
+     * @param {EntityVo<Object>} vo
+     * @param {number | string} expectedVersion
+     * @return {Promise<boolean>}
+     * @private
+     */
+    public static async setVoCacheIfVersion<T extends BaseOrmEntity>(
+        entity: EntityClass<T>,
+        shardValue: string | number,
+        indexValue: string | number,
+        vo: EntityVo<T>,
+        expectedVersion: number | string
+    ): Promise<boolean> {
+        const cacheKey = this.cacheKey(entity.name, shardValue);
+        const versionKey = this.versionKey(entity.name, shardValue);
+        return await CacheFactory.instance().getCache(shardValue).hSetIfVersion(cacheKey, indexValue, vo, versionKey, expectedVersion);
+    }
+
+    /**
+     * 将 entity vo 直接写入缓存（写库提交后由写者写入；并发写同分片不同行时字段互不冲突，无需 CAS）
      *
      * @param {EntityClass} entity
      * @param {string | number} shardValue
@@ -527,39 +573,24 @@ export class OrmFactory {
     }
 
     /**
-     * 将 entity voList 保存到缓存
+     * 版本号匹配才批量写入 entity voList（Lua CAS）
      *
      * @param {EntityClass} entity
      * @param {string | number} shardValue
      * @param {EntityVoList<Object>} list
-     * @return {Promise<void>}
+     * @param {number | string} expectedVersion
+     * @return {Promise<boolean>}
      * @private
      */
-    public static async setVoListCache<T extends BaseOrmEntity>(
+    public static async setVoListCacheIfVersion<T extends BaseOrmEntity>(
         entity: EntityClass<T>,
         shardValue: string | number,
-        list: EntityVoList<T>
-    ): Promise<void> {
+        list: EntityVoList<T>,
+        expectedVersion: number | string
+    ): Promise<boolean> {
         const cacheKey = this.cacheKey(entity.name, shardValue);
-        await CacheFactory.instance().getCache(shardValue).hMSet(cacheKey, list);
-    }
-
-    /**
-     * 将 entity voList 的 index 保存到缓存
-     *
-     * @param {EntityClass} entity
-     * @param {string | number} shardValue
-     * @param {string | string[]} list
-     * @return {Promise<void>}
-     * @private
-     */
-    public static async setVoListIndexCache<T extends BaseOrmEntity>(
-        entity: EntityClass<T>,
-        shardValue: string | number,
-        list: string | string[]
-    ): Promise<void> {
-        const cacheKey = this.cacheKey(entity.name, shardValue);
-        await CacheFactory.instance().getCache(shardValue).sadd(cacheKey + INDEX_CACHE, list);
+        const versionKey = this.versionKey(entity.name, shardValue);
+        return await CacheFactory.instance().getCache(shardValue).hMSetIfVersion(cacheKey, list, versionKey, expectedVersion);
     }
 
     /**
@@ -594,24 +625,6 @@ export class OrmFactory {
     ): Promise<void> {
         const cacheKey = this.cacheKey(entity.name, shardValue);
         await CacheFactory.instance().getCache(shardValue).hDel(cacheKey, String(indexValue));
-    }
-
-    /**
-     * 将 entity vo 的 index 从缓存中删除
-     *
-     * @param {EntityClass} entity
-     * @param {string | number} shardValue
-     * @param {string | number} indexValue
-     * @return {Promise<void>}
-     * @private
-     */
-    public static async removeVoListIndexCache<T extends BaseOrmEntity>(
-        entity: EntityClass<T>,
-        shardValue: string | number,
-        indexValue: string | number
-    ): Promise<void> {
-        const cacheKey = this.cacheKey(entity.name, shardValue);
-        await CacheFactory.instance().getCache(shardValue).srem(cacheKey + INDEX_CACHE, String(indexValue));
     }
 
     /**
@@ -652,39 +665,10 @@ export class OrmFactory {
         const cache = CacheFactory.instance().getCache(shardValue);
         const cacheKey = this.cacheKey(entity.name, shardValue);
 
-        // 1. 获取索引列表和缓存数据
-        // 完全信任缓存索引，只有两种状态，一种是没有缓存，一种是全量缓存，当不存在缓存时，直接返回空列表，查询数据库后重建缓存
-        const indexList = await cache.smembers(cacheKey + INDEX_CACHE);
-        if (!indexList || indexList.length == 0) {
+        // CAS 模式下缓存不删，hash 非空即完整；为空则回源全量重建（getVoList 兜底）
+        const cacheData = await cache.hGetAll(cacheKey);
+        if (!cacheData) {
             return list;
-        }
-
-        // 2. 找出缺失的索引
-        const cacheData = await cache.hGetAll(cacheKey) || {};
-        const existingList = Object.keys(cacheData || {});
-        const missingList = indexList.filter(index => !existingList.includes(index));
-        const removeList = existingList.filter(index => !indexList.includes(index));
-
-        // 3. 如果有已经删除的索引，直接删除缓存数据
-        if (removeList.length > 0) {
-            for (const key of Object.keys(removeList)) {
-                await cache.hDel(cacheKey, key);
-                delete cacheData[key];
-            }
-        }
-
-        // 4. 如果没有缺失的索引，直接返回缓存数据
-        if (missingList.length > 0) {
-            const dataList = await this.select<T>(entity, shardValue, missingList);
-
-            // 将数据库结果转成以 indexColumn 为 key 的 k-v 对象，通过 hMSet 塞回缓存
-            if (dataList && dataList.length > 0) {
-                const entityVoList = this._coverRowListToEntityList<T>(entity, dataList);
-                for (const key of Object.keys(entityVoList)) {
-                    await cache.hSet(cacheKey, key, entityVoList[key]);
-                    cacheData[key] = entityVoList[key];
-                }
-            }
         }
 
         for (const key of Object.keys(cacheData)) {
@@ -692,23 +676,6 @@ export class OrmFactory {
         }
 
         return list;
-    }
-
-
-    /**
-     * 从缓存中获取 VoList 的 index 数据
-     *
-     * @param {EntityClass} entity
-     * @param {string | number} shardValue
-     * @return {Promise<string[]>}
-     * @private
-     */
-    public static async getVoIndexCache<T extends BaseOrmEntity>(
-        entity: EntityClass<T>,
-        shardValue: string | number
-    ): Promise<string[]> {
-        const cacheKey = this.cacheKey(entity.name, shardValue);
-        return await CacheFactory.instance().getCache(shardValue).smembers(cacheKey + INDEX_CACHE);
     }
 
     /**
@@ -761,5 +728,17 @@ export class OrmFactory {
         const entityInfo = OrmEntityStorage.instance.get(entityName);
         const cacheName = entityInfo.CacheName ? entityInfo.CacheName : entityName;
         return Utils.format('%s:%s', cacheName, shardValue);
+    }
+
+    /**
+     * 生成缓存版本 Key（与数据 Key 一一对应，用于 CAS 写）
+     *
+     * @param {string} entityName
+     * @param {string | number} shardValue
+     * @return {string}
+     * @private
+     */
+    private static versionKey(entityName: string, shardValue: string | number): string {
+        return this.cacheKey(entityName, shardValue) + ':ver';
     }
 }

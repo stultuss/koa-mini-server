@@ -69,6 +69,27 @@ export class RedisCache extends AbstractCache {
     }
 
     /**
+     * 暴露底层 Redis 客户端连接（供外部 lib 直接使用，如令牌桶）
+     *
+     * @return {RedisClient}
+     */
+    public get conn(): RedisClient {
+        return this._conn;
+    }
+
+    /**
+     * 通用 Lua 脚本执行（连接安全：@Connection 自动连接/重连）
+     *
+     * @param {string} script - Lua 脚本
+     * @param {{keys: Array<string>; arguments: Array<string>}} options - KEYS 与 ARGV
+     * @return {Promise<any>}
+     */
+    @Connection()
+    public async eval(script: string, options: {keys: Array<string>; arguments: Array<string>}): Promise<any> {
+        return await this._conn.eval(script, options);
+    }
+
+    /**
      * 创建 Redis 客户端
      *
      * @private
@@ -220,45 +241,6 @@ export class RedisCache extends AbstractCache {
     public async getBuffer(key: string): Promise<any> {
         const r = await this._conn.get(key);
         return (Utils.isEmptyValue(r)) ? null : Utils.toBuffer(r);
-    }
-
-    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-    //-* LOCKER FUNCTIONS
-    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-
-    /**
-     * 获取分布式锁
-     *
-     * @param key - 锁的键
-     * @param value - 锁的值(通常是请求标识)
-     * @param expire - 锁的过期时间(秒)
-     */
-    @Connection()
-    public async lockAcquire(key: string, value: any, expire: number = 30): Promise<boolean> {
-        // 使用 SET key value NX EX seconds 实现原子操作
-        const r = await this._conn.set(key, this._encodeValue(value), {NX: true, EX: expire});
-        return r === 'OK';
-    }
-
-    /**
-     * 释放分布式锁
-     *
-     * @param key - 锁的键
-     * @param value - 锁的值(必须与加锁时的值相同)
-     */
-    @Connection()
-    public async lockRelease(key: string, value: any): Promise<boolean> {
-        // 使用 Lua 脚本确保原子性
-        const script = `
-            if redis.call("get",KEYS[1]) == ARGV[1] then
-                return redis.call("del",KEYS[1])
-            else
-                return 0
-            end
-        `;
-
-        const r = await this._conn.eval(script, {keys: [key], arguments: [this._encodeValue(value)]});
-        return r === 1;
     }
 
     //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -493,6 +475,106 @@ export class RedisCache extends AbstractCache {
 
         await this.expire(key, expire);
         return r;
+    }
+
+    /**
+     * 获取版本号（用于缓存一致性 CAS）
+     *
+     * @param {string} key
+     * @return {Promise<number>}
+     */
+    @Connection()
+    public async getVersion(key: string): Promise<number> {
+        const r = await this._conn.get(key);
+        return (Utils.isEmptyValue(r)) ? 0 : Number(r);
+    }
+
+    /**
+     * 版本号 +1（写操作后调用，使在途读请求的 CAS 失败）
+     *
+     * @param {string} key
+     * @return {Promise<number>}
+     */
+    @Connection()
+    public async incrVersion(key: string): Promise<number> {
+        return await this._conn.incr(key);
+    }
+
+    /**
+     * 版本号匹配才写入单个 hash 字段（Lua CAS，防止并发读把旧值写回缓存）
+     *
+     * @param {string} key
+     * @param {number | string} field
+     * @param value
+     * @param {string} versionKey
+     * @param {number | string} expectedVersion
+     * @return {Promise<boolean>}
+     */
+    @Connection()
+    public async hSetIfVersion(key: string, field: number | string, value: any, versionKey: string, expectedVersion: number | string): Promise<boolean> {
+        const script = `
+            local v = redis.call('get', KEYS[2]) or '0'
+            if v == ARGV[1] then
+                redis.call('hset', KEYS[1], ARGV[2], ARGV[3])
+                return 1
+            end
+            return 0
+        `;
+        const r = await this._conn.eval(script, {
+            keys: [key, versionKey],
+            arguments: [String(expectedVersion), String(field), this._encodeValue(value)]
+        });
+
+        if (r === 1) {
+            await this.expire(key);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 版本号匹配才批量写入 hash（Lua CAS，防止并发读把旧值写回缓存）
+     *
+     * @param {string} key
+     * @param {Record<string, any>} obj
+     * @param {string} versionKey
+     * @param {number | string} expectedVersion
+     * @return {Promise<boolean>}
+     */
+    @Connection()
+    public async hMSetIfVersion(key: string, obj: Record<string, any>, versionKey: string, expectedVersion: number | string): Promise<boolean> {
+        if (Utils.isEmptyValue(obj)) {
+            return true;
+        }
+
+        const script = `
+            local v = redis.call('get', KEYS[2]) or '0'
+            if v == ARGV[1] then
+                local i = 2
+                while i <= #ARGV do
+                    redis.call('hset', KEYS[1], ARGV[i], ARGV[i + 1])
+                    i = i + 2
+                end
+                return 1
+            end
+            return 0
+        `;
+
+        const args: Array<string> = [String(expectedVersion)];
+        for (const field of Object.keys(obj)) {
+            args.push(String(field), this._encodeValue(obj[field]));
+        }
+
+        const r = await this._conn.eval(script, {
+            keys: [key, versionKey],
+            arguments: args
+        });
+
+        if (r === 1) {
+            await this.expire(key);
+            return true;
+        }
+        return false;
     }
 
     /**
