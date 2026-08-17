@@ -1,12 +1,12 @@
 import joi from 'joi';
 import {Context as KoaContext, Middleware as KoaMiddleware, Request as KoaRequest, Next as KoaNext} from 'koa';
 import {ErrorMessage} from '../../exception/ErrorMessage';
-import {JsonTools} from '../../tools/JsonTools';
-import {Logger} from '../../Logger';
-import {Utils} from '../../Utils';
 import {CacheFactory} from '../../cache/CacheFactory.class';
 import {RedisLock, REDIS_LOCK_DEFAULT} from '../../lock/RedisLock';
+import {JsonTools} from '../../tools/JsonTools';
 import {RandomTools} from '../../tools/RandomTools';
+import {Logger} from '../../Logger';
+import {Utils} from '../../Utils';
 import {serverConfig} from '../../../config/server.config';
 
 export const METHOD_ALL = 'all';

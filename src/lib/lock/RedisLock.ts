@@ -3,7 +3,7 @@ import {RedisCache} from '../cache/RedisCache.class';
 export interface RedisLockOptions {
     ttlMs?: number;             // 锁 TTL（毫秒），默认 5000；须略高于正常临界区耗时的上界
     timeoutMs?: number;         // 获取超时（毫秒），默认 3000；超过视为排队失败（10007）
-    retryIntervalMs?: number;   // 竞争轮询间隔（毫秒），默认 20
+    retryIntervalMs?: number;   // 竞争轮询间隔基准（毫秒），默认 100；实际等待 = 基准 ±50% 随机（jitter，防共振）
 }
 
 export const REDIS_LOCK_DEFAULT: Required<RedisLockOptions> = {
@@ -12,7 +12,10 @@ export const REDIS_LOCK_DEFAULT: Required<RedisLockOptions> = {
     ttlMs: 5000,
     // 获取超时必须小于超时熔断（5s）：排队成功后仍留出执行窗口，避免刚拿到锁就被熔断 cut
     timeoutMs: 3000,
-    retryIntervalMs: 20
+    // 轮询间隔不宜过小：N 个等待者同拍抢锁会放大 Redis 流量（thundering herd）；
+    // 100ms 基准 + ±50% jitter，3s 超时内约 20~40 次尝试，锁释放后感知延迟 ≤100ms，
+    // 对排队中的请求无感，但抢锁流量仅为 20ms 固定间隔的 1/5
+    retryIntervalMs: 100
 };
 
 /**
@@ -74,7 +77,9 @@ export class RedisLock {
             if (Date.now() >= deadline) {
                 return false;
             }
-            await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
+            // jitter：等待基准 ±50% 随机（0.5~1.5 倍），避免多个等待者严格同拍共振抢锁
+            const waitMs = retryIntervalMs * (0.5 + Math.random());
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
         }
     }
 
