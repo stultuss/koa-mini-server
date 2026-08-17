@@ -14,6 +14,7 @@ export const ERROR_CODE = {
     10003: 'REDIS_CONNECT_ERR',
     10004: 'RATE_LIMIT_EXCEEDED, retryAfter: %s',
     10006: 'REQUEST_TIMEOUT, timeoutMs: %s',
+    10007: 'QUEUE_TIMEOUT, key: %s, waitMs: %s',
     
     /**
      * 配置报错

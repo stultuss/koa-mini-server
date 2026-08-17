@@ -63,14 +63,10 @@ class Server {
 
         // 本地并发计数器（进程内，保护单机 Event Loop；Redis 故障时降级收紧阈值）
         this._app.use(InflightLimiter.instance().middleware(dynamicCallback('global', 'inflight', false)));
-
         // 请求超时熔断（整条请求链路超时，超时返回结构化错误并释放并发槽位；配置动态生效）
         this._app.use(requestTimeout(dynamicCallback('global', 'timeout', false)));
-
-        // 进程 IP 级桶（进程内 LRU）
+        // 令牌桶，配置参考 setting/global.json
         this._app.use(rateIpLimit(dynamicCallback('global', 'rateIpLimit', false)));
-
-        // 全局桶 + 接口桶（配置来自 settings/global.json -> rateLimit，保护共享 MySQL）
         this._app.use(rateLimit(dynamicCallback('global', 'rateLimit', false), InflightLimiter.instance()));
 
         // 其他中间件

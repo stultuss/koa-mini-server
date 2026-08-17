@@ -19,10 +19,9 @@
 - [x] 封装数据库（TypeORM 0.3 多数据源 + crc32 分库 + `uid % 10` 分表）
 - [x] 数据映射模型（Entity VO + 版本号 CAS 缓存）
 - [x] 限流 / 熔断 / 并发保护（server 层洋葱中间件，配置动态生效）：
-  - Inflight 并发计数器（进程内，Redis 故障时降级收紧阈值）
-  - 请求超时熔断（默认 5s，支持按路径覆盖 / 排除）
-  - IP 桶（进程内 LRU）+ Redis 全局桶 + 接口桶（多桶合并单 Lua，一次 Redis 访问）
-- [ ] 灰度
+- [x] Inflight 并发计数器（进程内，Redis 故障时降级收紧阈值）
+- [x] 请求超时熔断（默认 5s，支持按路径覆盖 / 排除）
+- [x] IP 桶（进程内 LRU）+ Redis 全局桶 + 接口桶（多桶合并单 Lua，一次 Redis 访问）
 
 ## 启动
 
@@ -86,7 +85,7 @@ bash schema/dev/schema_1.sh   # db_demo_1（logs + demo_0~demo_9）
 | 路由 | 说明 |
 | --- | --- |
 | `/check` | 自检接口：返回服务状态与当前时间；`test=log` 测试 Logs 列表缓存 |
-| `/v1/demo?id=1&name=xxx` | 演示接口（位于限流限制名单内） |
+| `/v1/demo?userId=1&name=xxx` | 演示接口（位于限流限制名单内） |
 
 `/v1/demo` 的 `name` 钩子：
 
@@ -111,7 +110,17 @@ bash schema/dev/schema_1.sh   # db_demo_1（logs + demo_0~demo_9）
 2. 请求超时熔断（整条链路预算，超时返回 code 10006 并释放并发槽位）
 3. IP 桶（进程内 LRU）
 4. Redis 全局桶 + 接口桶（一次 Lua 原子判断）
-5. 业务路由
+5. 业务路由（接口内可选请求队列：`AbstractAPI.serializeBy` 定义参数名，
+   命中即按参数值进入 Redis 分布式队列串行化，跨进程、跨接口共享）
+
+### 并发计数与队列/超时的联动约束
+
+- **排队请求计入全局并发槽位**：命中请求队列的请求（最长等待 3s）在排队期间
+  也占用 Inflight 并发槽位。同一业务键（如 userId）的洪峰会挤占其他接口的
+  并发额度，极端时导致其他接口短暂 503——队列是"在途但不工作"的请求；
+- **超时释放槽位但不释放底层任务**：超时熔断（code 10006）只结束客户端等待并
+  释放并发槽位，被 race 的底层任务（DB 查询等）无法取消、仍在后台执行。
+  并发计数反映"客户端在途"，不代表后台资源占用，慢查询场景下实际负载可能高于计数。
 
 ## 目录
 
@@ -147,6 +156,8 @@ class Demo extends AbstractAPI {
             id: joi.number().required(),
             name: joi.string().required()
         };
+        // 可选：请求队列限制名单（参数名）——请求带 userId 时按 userId 串行化
+        this.serializeBy = ['userId'];
     }
 
     public async handle(ctx: ApiContext, req: ApiRequest, next: ApiNext): Promise<any> {

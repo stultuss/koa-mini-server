@@ -11,11 +11,13 @@ export class InflightLimiter {
     private _active: number = 0;
     private _degraded: boolean = false;
     private _highConcurrency: boolean = false; // 边沿触发：进入/离开 80% 水位只告警一次
+    private _rejected: number = 0;             // 超限拒绝累计数（监控/测试用）
 
     private constructor() {
         this._active = 0;
         this._degraded = false;
         this._highConcurrency = false;
+        this._rejected = 0;
     }
 
     public static instance(): InflightLimiter {
@@ -49,7 +51,17 @@ export class InflightLimiter {
     }
 
     /**
-     * 生成 Koa 中间件：进入请求计数 +1，超出上限直接拒绝；请求结束（含异常）计数 -1
+     * 超限拒绝累计数（监控/测试用）
+     *
+     * @return {number}
+     */
+    public rejected(): number {
+        return this._rejected;
+    }
+
+    /**
+     * 生成 Koa 中间件：进入请求计数 +1，超出上限结构化拒绝（503 + Retry-After，
+     * 含拒绝日志与计数）；请求结束（含异常）计数 -1
      *
      * @return {KoaMiddleware}
      */
@@ -68,9 +80,13 @@ export class InflightLimiter {
 
             // 1. 检查并发水位
             if (this._active >= max) {
+                // 结构化拒绝：503 + Retry-After，客户端可识别过载并退避；
+                // 不 destroy 连接（destroy 会向客户端呈现 ECONNRESET，与网络故障无法区分）
+                this._rejected += 1;
                 ctx.status = 503;
+                ctx.set('Retry-After', '1');
                 ctx.body = {code: -1, msg: 'Server Overloaded (Concurrency Limit)'};
-                ctx.res.destroy(); // 断开连接，释放 LB/Nginx 资源
+                Logger.warn(`[INFLIGHT] rejected, active=${this._active}, max=${max}, totalRejected=${this._rejected}`);
                 return;
             }
 

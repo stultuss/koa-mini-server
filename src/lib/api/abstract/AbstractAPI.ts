@@ -4,6 +4,13 @@ import {ErrorMessage} from '../../exception/ErrorMessage';
 import {JsonTools} from '../../tools/JsonTools';
 import {Logger} from '../../Logger';
 import {Utils} from '../../Utils';
+import {CacheFactory} from '../../cache/CacheFactory.class';
+import {RedisLock, REDIS_LOCK_DEFAULT} from '../../lock/RedisLock';
+import {RandomTools} from '../../tools/RandomTools';
+import {serverConfig} from '../../../config/server.config';
+
+// Redis 故障 fail-open 日志去重，避免每请求刷屏
+const loggedQueueFail = new Set<string>();
 
 export const METHOD_ALL = 'all';
 export const METHOD_POST = 'post';
@@ -42,6 +49,7 @@ export abstract class AbstractAPI {
     public isResponseSchema: boolean = true; // 是否默认返回结构化数据
     public readonly REQ_SLOW_LOG_THRESHOLD = 3000;
     public extra: any;
+    public serializeBy: string[] = []; // 请求队列限制名单（参数名）：由各接口自行定义，命中即按参数值串行化
 
     public abstract handle(ctx: ApiContext, req: ApiRequest, next: ApiNext): Promise<any>;
 
@@ -59,6 +67,7 @@ export abstract class AbstractAPI {
             this._requestLogger(),      // 请求日志
             this._parseParams(),        // 参数解析
             this._validate(),           // 参数验证
+            this._serialize(),          // 请求队列（按业务参数串行化）
             this._performanceMonitor(), // 性能监控
             this._execute(),            // 业务执行
             this._responseLogger()      // 响应日志
@@ -150,6 +159,74 @@ export abstract class AbstractAPI {
             }
 
             await next();
+        };
+    }
+
+    /**
+     * 请求队列：按业务参数串行化（Redis 分布式互斥，跨进程、跨接口生效）
+     *
+     * - 参数名由各接口的 serializeBy 定义；aggregatedParams 中存在名单内参数名且值非空时，
+     *   队列键 = `${参数名}:${参数值}`（如 userId:1）；
+     * - 锁键不含路由：同一业务键跨接口共享队列，多个接口同时请求同一用户数据时串行；
+     * - 排队获取超时抛 10007（QUEUE_TIMEOUT）；请求结束（含异常）必释放锁；
+     * - Redis 故障 fail-open 放行并去重记日志（队列是一致性助手，不做保护层）；
+     * - 非严格 FIFO：竞争时轮询抢锁，只保证互斥。
+     */
+    protected _serialize(): KoaMiddleware {
+        return async (ctx: ApiContext, next: ApiNext): Promise<void> => {
+            // 未配置限制名单 → 不排队
+            if (!this.serializeBy || this.serializeBy.length === 0) {
+                await next();
+                return;
+            }
+
+            // 取第一个"在名单内且值非空"的参数作为队列键
+            const params = ctx.request.aggregatedParams || {};
+            let queueKey: string | null = null;
+            for (const name of this.serializeBy) {
+                const value = params[name];
+                if (value !== undefined && value !== null && value !== '') {
+                    queueKey = `${name}:${value}`;
+                    break;
+                }
+            }
+            if (!queueKey) {
+                await next();
+                return;
+            }
+
+            const cache = CacheFactory.instance().getCache(0);
+            // 锁键不含路由：同一业务键跨接口共享队列
+            const key = `${serverConfig.name}:queue:${queueKey}`;
+            const token = RandomTools.uuid(); // 持有者标识：RFC 4122 v4，跨进程构造性唯一
+
+            let acquired = false;
+            try {
+                acquired = await RedisLock.acquire(cache, key, token);
+            } catch (e) {
+                // Redis 故障 fail-open：放行（去重日志）
+                const msg = e instanceof Error ? e.message : String(e);
+                if (!loggedQueueFail.has(msg)) {
+                    loggedQueueFail.add(msg);
+                    Logger.warn(`[QUEUE] redis lock error, pass through: ${msg}`);
+                }
+                await next();
+                return;
+            }
+
+            // 排队超时：结构化拒绝
+            if (!acquired) {
+                throw new ErrorMessage(10007, queueKey, REDIS_LOCK_DEFAULT.timeoutMs);
+            }
+
+            try {
+                await next();
+            } finally {
+                // 无论成功或异常，必须释放锁
+                await RedisLock.release(cache, key, token).catch((e) => {
+                    Logger.warn(`[QUEUE] release error: ${e instanceof Error ? e.message : String(e)}`);
+                });
+            }
         };
     }
 
