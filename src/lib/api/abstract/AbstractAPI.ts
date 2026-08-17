@@ -244,7 +244,7 @@ export abstract class AbstractAPI {
                         duration,
                     });
                 } else {
-                    Logger.warn({
+                    Logger.debug({
                         type: `[API:CONSUME]`,
                         uri: this.uri,
                         ip: ctx.remoteIp,
