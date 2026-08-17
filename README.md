@@ -126,6 +126,11 @@ bash schema/dev/schema_1.sh   # db_demo_1（logs + demo_0~demo_9）
   不会冲突。超时分支会记录超时事件（warn）并观察后台任务结局（成功 debug / 失败 warn）。
 - **overrides 非法值（0/负数/非数字）回退全局默认并记错误日志**：避免配错导致该接口
   全线立即超时（default <= 0 时整层放行）。
+- **限流 Redis 故障策略 failMode**：`open`（默认）= 放行并收紧本地并发阈值（Inflight），
+  用单机在途并发兜底；`close` = 结构化拒绝，但返回的是 Redis 原始错误码
+  （如 10003 REDIS_CONNECT_ERR / 10002），而非限流码 10004——客户端/监控需知晓
+  fail-close 下"被限流系统故障拒绝"与"自身超限"在响应码上不同。故障与非法配置
+  日志首见记录、后续静默，避免刷屏。
 
 ## 目录
 
