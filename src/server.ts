@@ -61,11 +61,9 @@ class Server {
         // 使用 callback 的方法把配置中心的动态数据传递出来。
         const dynamicCallback = SettingManager.instance().dynamicCallback.bind(SettingManager.instance());
 
-        // 本地并发计数器（进程内，保护单机 Event Loop；Redis 故障时降级收紧阈值）
+        // 本地并发计数器 / 请求超时熔断 / 本地IP令牌桶 / 全局接口令牌桶
         this._app.use(InflightLimiter.instance().middleware(dynamicCallback('global', 'inflight', false)));
-        // 请求超时熔断（整条请求链路超时，超时返回结构化错误并释放并发槽位；配置动态生效）
         this._app.use(requestTimeout(dynamicCallback('global', 'timeout', false)));
-        // 令牌桶，配置参考 setting/global.json
         this._app.use(rateIpLimit(dynamicCallback('global', 'rateIpLimit', false)));
         this._app.use(rateLimit(dynamicCallback('global', 'rateLimit', false), InflightLimiter.instance()));
 
