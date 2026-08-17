@@ -1,5 +1,6 @@
 import {Context as KoaContext, Middleware as KoaMiddleware, Next as KoaNext} from 'koa';
 import {ErrorMessage} from '../exception/ErrorMessage';
+import {Logger} from '../Logger';
 
 export interface RequestTimeoutConfig {
     default?: number;                       // global.json 结构：默认超时（毫秒），如 30000
@@ -15,7 +16,12 @@ export interface RequestTimeoutConfig {
  * - 配置通过 getConfig 实时读取（来自 SettingManager，gRPC 下发即生效）：
  *   每请求直接读取当前配置并现算（排除匹配/超时值），不做派生缓存，与 InflightLimiter 一致；
  * - 仅接口层超时，不涉及 MySQL/Redis 查询级超时（查询超时由各自客户端/配置另行管理）；
- * - 注意：Promise.race 无法取消已开始的异步任务，超时返回后底层任务可能仍在后台执行。
+ * - 注意：Promise.race 无法取消已开始的异步任务，超时返回后底层任务可能仍在后台执行；
+ *   超时分支会观察其最终结局并记录日志（成功 debug / 失败 warn），避免"断线失联"；
+ * - 超时判定基于 code === 10006（业务错误码段 30000+，不会冲突）；
+ * - overrides 值须为正有限数（毫秒），非法值回退全局默认并记错误日志；
+ * - 超时响应为 HTTP 200 + code 10006（非 5xx）：基于 HTTP 状态码的监控/LB 看不到超时，
+ *   超时率需按 body.code 统计。
  *
  * @param {() => RequestTimeoutConfig} getConfig
  * @return {KoaMiddleware}
@@ -37,8 +43,17 @@ export function requestTimeout(getConfig: () => RequestTimeoutConfig): KoaMiddle
             }
         }
 
-        // 接口级覆盖优先，缺省用全局默认
-        const ms = (cfg.overrides && cfg.overrides[ctx.path] != null) ? cfg.overrides[ctx.path] : cfg.default;
+        // 接口级覆盖优先，缺省用全局默认；
+        // overrides 非法值（0/负数/非数字）回退全局默认，避免配错导致该接口全线立即超时
+        let ms = cfg.default;
+        const override = cfg.overrides && cfg.overrides[ctx.path];
+        if (override != null) {
+            if (Number.isFinite(override) && override > 0) {
+                ms = override;
+            } else {
+                Logger.error(`[TIMEOUT] invalid override for ${ctx.path}: ${override}, fallback to default ${cfg.default}`);
+            }
+        }
 
         // 计时**竞速**开始，Promise.race 二选一：
         // - 业务链路（next()）先完成/报错 → 竞速结束，finally 里 clearTimeout 清掉计时器，不残留；
@@ -52,11 +67,21 @@ export function requestTimeout(getConfig: () => RequestTimeoutConfig): KoaMiddle
             timer = setTimeout(() => reject(new ErrorMessage(10006, ms)), ms);
         });
 
+        // 业务链路单独持有：超时后其最终结局（成功/失败）需观察记录，避免"断线失联"
+        let business: Promise<any> | null = null;
         try {
-            await Promise.race([next(), timeoutPromise]);
+            business = next();
+            await Promise.race([business, timeoutPromise]);
         } catch (e) {
             if (e instanceof ErrorMessage && e.code === 10006) {
                 ctx.body = ErrorMessage.format(e); // 超时：结构化响应，不抛给外层
+                // 超时事件日志 + 后台任务结局观察：race 已 settle，后台任务的
+                // 最终结果（成功/失败）不会再有其他消费者，不观察则对日志完全不可见
+                Logger.warn(`[TIMEOUT] request timed out, uri: ${ctx.path}, timeoutMs: ${ms}`);
+                business?.then(
+                    () => Logger.debug(`[TIMEOUT] background task completed after timeout, uri: ${ctx.path}, timeoutMs: ${ms}`),
+                    (err: any) => Logger.warn(`[TIMEOUT] background task failed after timeout, uri: ${ctx.path}, timeoutMs: ${ms}, err: ${err instanceof Error ? err.message : String(err)}`)
+                );
                 return;
             }
             throw e;
