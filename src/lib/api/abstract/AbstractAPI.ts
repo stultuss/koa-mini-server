@@ -9,9 +9,6 @@ import {RedisLock, REDIS_LOCK_DEFAULT} from '../../lock/RedisLock';
 import {RandomTools} from '../../tools/RandomTools';
 import {serverConfig} from '../../../config/server.config';
 
-// Redis 故障 fail-open 日志去重，避免每请求刷屏
-const loggedQueueFail = new Set<string>();
-
 export const METHOD_ALL = 'all';
 export const METHOD_POST = 'post';
 export const METHOD_GET = 'get';
@@ -205,11 +202,7 @@ export abstract class AbstractAPI {
                 acquired = await RedisLock.acquire(cache, key, token);
             } catch (e) {
                 // Redis 故障 fail-open：放行（去重日志）
-                const msg = e instanceof Error ? e.message : String(e);
-                if (!loggedQueueFail.has(msg)) {
-                    loggedQueueFail.add(msg);
-                    Logger.warn(`[QUEUE] redis lock error, pass through: ${msg}`);
-                }
+                Logger.warn(`[QUEUE] redis lock error, pass through: ${e instanceof Error ? e.message : String(e)}`);
                 await next();
                 return;
             }

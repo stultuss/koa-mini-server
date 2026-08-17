@@ -5,10 +5,6 @@ import {RedisTokenBucket} from '../tokenbucket/RedisTokenBucket';
 import {ErrorMessage} from '../exception/ErrorMessage';
 import {Logger} from '../Logger';
 
-// Redis 故障 / 非法配置日志去重，避免每请求刷屏（首见记录，后续静默）
-const loggedRateLimitFail = new Set<string>();
-const loggedInvalidBucket = new Set<string>();
-
 export interface RateLimitConfig {
     rate: number;                   // 每秒补充令牌数
     capacity: number;               // 桶容量（最大突发）
@@ -26,11 +22,7 @@ export interface DbRateLimitConfig {
  */
 export function validateBucketConfig(name: string, config: RateLimitConfig): RateLimitConfig | null {
     if (!Number.isFinite(config.rate) || config.rate <= 0 || !Number.isFinite(config.capacity) || config.capacity < 1) {
-        const msg = `[RATE_LIMIT] invalid ${name} bucket config, rate=${config.rate}, capacity=${config.capacity}`;
-        if (!loggedInvalidBucket.has(msg)) {
-            loggedInvalidBucket.add(msg);
-            Logger.error(msg);
-        }
+        Logger.error(`[RATE_LIMIT] invalid ${name} bucket config, rate=${config.rate}, capacity=${config.capacity}`);
         return null;
     }
     return config;
@@ -114,11 +106,8 @@ export function rateLimit(
                 Logger.warn('[RATE_LIMIT] redis recovered, restore inflight limit');
             }
         } catch (e) {
-            const errMsg = e instanceof Error ? e.message : String(e);
-            if (!loggedRateLimitFail.has(errMsg)) {
-                loggedRateLimitFail.add(errMsg);
-                Logger.error(`[RATE_LIMIT] redis token bucket error: ${errMsg}`);
-            }
+            Logger.error(`[RATE_LIMIT] redis token bucket error: ${e instanceof Error ? e.message : String(e)}`);
+
             if (failMode === 'close') {
                 ctx.body = ErrorMessage.format(e);
                 return;
