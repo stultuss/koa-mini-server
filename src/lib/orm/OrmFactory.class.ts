@@ -1,6 +1,6 @@
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import {DataSource, DataSourceOptions, In, ObjectType} from 'typeorm';
+import {DataSource, DataSourceOptions, In, ObjectType, Raw} from 'typeorm';
 import {FileTools} from '../tools/FileTools';
 import {ErrorMessage} from '../exception/ErrorMessage';
 import {CacheFactory} from '../cache/CacheFactory.class';
@@ -395,12 +395,14 @@ export class OrmFactory {
      * @param {EntityClass} entity
      * @param {string | number} shardValue
      * @param {string | number} indexValue
+     * @param {boolean} isLower
      * @return {Promise<T extends BaseOrmEntity>}
      */
     public static async getVo<T extends BaseOrmEntity>(
         entity: EntityClass<T>,
         shardValue: string | number,
-        indexValue?: string | number
+        indexValue?: string | number,
+        isLower: boolean = false
     ): Promise<T> {
         // 需要先根据传入的 Entity 进行一次分片，防止数据库 table_name 丢失
         const target = OrmFactory.instance().getEntity(entity, shardValue);
@@ -415,20 +417,23 @@ export class OrmFactory {
             indexValue = shardValue;
         }
 
+        // 大小写不敏感场景（如邮箱）：缓存字段名统一小写，与 _coverRowListToEntityList 写入保持一致
+        const cacheIndex = (isLower) ? String(indexValue).toLowerCase() : indexValue;
+
         // 缓存命中，需要将 data 封装成 entity 再返回
-        const cacheEntity = await this.getVoCache<T>(target, shardValue, indexValue);
+        const cacheEntity = await this.getVoCache<T>(target, shardValue, cacheIndex);
 
         // 缓存未命中，数据库命中，将数据塞入缓存，并返回 entity
         if (!cacheEntity) {
             // 读取前记录版本号，写回时做 CAS，防止并发写把旧值覆盖成新值后又把旧缓存写回
             const version = await this.getVoVersion<T>(target, shardValue);
 
-            const dataList = await this.select<T>(target, shardValue);
+            const dataList = await this.select<T>(target, shardValue, null, isLower);
             if (dataList && dataList.length > 0) {
                 // 将数据库结果转成以 indexColumn 为 key 的 k-v 对象，通过 hMSet 塞回缓存
-                const entityVoList = this._coverRowListToEntityList<T>(target, dataList);
+                const entityVoList = this._coverRowListToEntityList<T>(target, dataList, isLower);
                 await this.setVoListCacheIfVersion<T>(target, shardValue, entityVoList, version);
-                return entityVoList[indexValue];
+                return entityVoList[(isLower) ? String(indexValue).toLowerCase() : indexValue];
             }
         }
 
@@ -480,18 +485,21 @@ export class OrmFactory {
      *
      * @param {EntityClass} entity
      * @param {any[]} dataList
+     * @param {boolean} isLower
      * @return {EntityVoList<Object>}
      * @private
      */
     private static _coverRowListToEntityList<T extends BaseOrmEntity>(
         entity: EntityClass<T>,
-        dataList: any[]
+        dataList: any[],
+        isLower: boolean = false
     ): EntityVoList<T> {
         const {IndexColumn} = OrmEntityStorage.instance.get(entity.name);
         const list: EntityVoList<T> = {};
         dataList.forEach((data) => {
             if (data.hasOwnProperty(IndexColumn)) {
-                list[data[IndexColumn]] = data;
+                const key = (isLower) ? String(data[IndexColumn]).toLowerCase() : data[IndexColumn];
+                list[key] = data;
             }
         });
         return list;
@@ -684,19 +692,21 @@ export class OrmFactory {
      * @param {EntityClass} entity
      * @param {number | string} shardValue
      * @param {number | string} indexValue
+     * @param {boolean} isLower
      * @return {Promise<<T extends BaseOrmEntity>[]>}
      * @private
      */
     public static select<T extends BaseOrmEntity>(
         entity: EntityClass<T>,
         shardValue: number | string,
-        indexValue?: number | string | number[] | string[]
+        indexValue?: number | string | number[] | string[],
+        isLower: boolean = false
     ): Promise<T[]> {
         const {ShardColumn, IndexColumn} = OrmEntityStorage.instance.get(entity.name);
         const condition = {};
 
         if (shardValue) {
-            condition[ShardColumn] = shardValue;
+            condition[ShardColumn] = LowerCaseRaw(shardValue, isLower);
         } else {
             throw new ErrorMessage(10031, entity.name);
         }
@@ -727,7 +737,9 @@ export class OrmFactory {
     ) {
         const entityInfo = OrmEntityStorage.instance.get(entityName);
         const cacheName = entityInfo.CacheName ? entityInfo.CacheName : entityName;
-        return Utils.format('%s:%s', cacheName, shardValue);
+        // {shardValue} 为 Redis 集群 hash tag：数据 Key 与版本 Key（cacheKey + ':ver'）
+        // 必须落在同一 slot，集群版才允许在一次 EVAL（Lua CAS）里同时访问（禁止跨 slot 脚本）。
+        return Utils.format('%s:{%s}', cacheName, shardValue);
     }
 
     /**
@@ -741,4 +753,15 @@ export class OrmFactory {
     private static versionKey(entityName: string, shardValue: string | number): string {
         return this.cacheKey(entityName, shardValue) + ':ver';
     }
+}
+
+/**
+ * 大小写不敏感条件：LOWER(列) = LOWER(:val)，用于邮箱等需要忽略大小写匹配的字段
+ *
+ * @param {any} val
+ * @param {boolean} isLower
+ * @return {any}
+ */
+function LowerCaseRaw(val: any, isLower: boolean = false): any {
+    return isLower ? Raw((alias) => `LOWER(${alias}) = LOWER(:val)`, {val: val}) : val;
 }

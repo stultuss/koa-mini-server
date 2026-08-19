@@ -158,9 +158,7 @@ export class SettingManager {
 
                 // 配置合并
                 const oldSetting = this._settings.get(name);
-                // 深拷贝旧配置，避免合并时修改已被 deepFreeze 冻结的嵌套对象
-                const oldSettingCopy = oldSetting ? JsonTools.parse(JsonTools.stringify(oldSetting)) : {};
-                const newSetting = Utils.deepMerge(oldSettingCopy, data.value);
+                const newSetting = Utils.deepMerge(Object.assign({}, oldSetting), data.value);
 
                 // 防止对象被篡改
                 Utils.deepFreeze(newSetting);

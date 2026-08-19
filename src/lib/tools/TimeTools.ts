@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import {Moment} from 'moment';
 
 export class TimeTools {
     public static EMPTY: string = '0000-00-00 00:00:00';
@@ -214,12 +214,12 @@ export class TimeTools {
     /**
      * 将指定时区的时间转换为另一时区的时间
      *
-     * @param {dayjs.Dayjs} time - 源时间
+     * @param {moment.Moment} time - 源时间
      * @param {string} fromTimezone - 源时区，如 8
      * @param {string} toTimezone - 目标时区，如 9
-     * @returns {dayjs.Dayjs} 返回转换后的时间
+     * @returns {moment.Moment} 返回转换后的时间
      */
-    public static convertTimezone(time: dayjs.Dayjs, fromTimezone: number, toTimezone: number): dayjs.Dayjs {
-        return time.add(toTimezone - fromTimezone, 'hour');
+    public static convertTimezone(time: Moment, fromTimezone: number, toTimezone: number): Moment {
+        return time.clone().add(toTimezone - fromTimezone, 'hour');
     }
 }

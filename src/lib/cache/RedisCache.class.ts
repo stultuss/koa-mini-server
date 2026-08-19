@@ -244,6 +244,44 @@ export class RedisCache extends AbstractCache {
     }
 
     //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    //-* LOCKER FUNCTIONS
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+    /**
+     * 获取分布式锁
+     *
+     * @param key - 锁的键
+     * @param value - 锁的值(通常是请求标识)
+     * @param expire - 锁的过期时间(秒)
+     */
+    @Connection()
+    public async lockAcquire(key: string, value: any, expire: number = 30): Promise<boolean> {
+        // 使用 SET key value NX EX seconds 实现原子操作
+        const r = await this._conn.set(key, this._encodeValue(value), {NX: true, EX: expire});
+        return r === 'OK';
+    }
+
+    /**
+     * 释放分布式锁
+     *
+     * @param key - 锁的键
+     * @param value - 锁的值(必须与加锁时的值相同)
+     */
+    @Connection()
+    public async lockRelease(key: string, value: any): Promise<boolean> {
+        // 使用 Lua 脚本确保原子性
+        const script = `
+            if redis.call("get",KEYS[1]) == ARGV[1] then
+                return redis.call("del",KEYS[1])
+            else
+                return 0
+            end
+        `;
+
+        const r = await this._conn.eval(script, {keys: [key], arguments: [this._encodeValue(value)]});
+        return r === 1;
+    }
+
+    //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     //-* STRING FUNCTIONS
     //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
     /**

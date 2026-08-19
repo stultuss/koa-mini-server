@@ -35,7 +35,8 @@ export function validateBucketConfig(name: string, config: RateLimitConfig): Rat
  * - 最前端 LB 把请求分配到具体 docker/进程，MySQL 是所有进程共享的瓶颈；进程内桶各自放行，
  *   N 个进程对 MySQL 的总流量没有上限；Redis 共享桶给出集群级硬顶，防止 MySQL 被击穿；
  * - global 与 api 两个桶合并进同一个 Lua 脚本（一次 Redis 访问，原子判断），避免每请求两次往返；
- * - 桶键：服务级全局桶 rl:global（所有接口共用一个），接口级桶 rl:api:{ctx.path}（按接口隔离）；
+ * - 桶键：服务级全局桶 rl:{rl}:global（所有接口共用一个），接口级桶 rl:{rl}:api:{ctx.path}（按接口隔离）；
+ *   {rl} 为 Redis 集群 hash tag：全局桶与接口桶必须落在同一 slot，才能在一次 Lua 调用里原子校验（集群禁止跨 slot 脚本）；
  * - 限制名单：配置了 api.apis 时，名单内接口走 global+api 两桶，不在名单内只走 global 桶；
  *   未配置 apis（缺省/空）则所有接口都走 global+api 两桶；
  * - Redis 故障策略 failMode：open=放行（默认，并收紧本地并发计数器 Inflight 阈值，
@@ -82,11 +83,11 @@ export function rateLimit(
         const buckets: Array<{key: string; rate: number; capacity: number}> = [];
         // 全局桶，所有接口都生效
         if (globalCfg) {
-            buckets.push({key: 'rl:global', rate: globalCfg.rate, capacity: globalCfg.capacity});
+            buckets.push({key: 'rl:{rl}:global', rate: globalCfg.rate, capacity: globalCfg.capacity});
         }
         // 接口桶仅对限制名单内接口生效；未配置（缺省/空）则所有接口都走
         if (apiCfg && (!apis || apis.includes(ctx.path))) {
-            buckets.push({key: `rl:api:${ctx.path}`, rate: apiCfg.rate, capacity: apiCfg.capacity});
+            buckets.push({key: `rl:{rl}:api:${ctx.path}`, rate: apiCfg.rate, capacity: apiCfg.capacity});
         }
 
         // 本路径无桶需要校验（如只配了 api 桶且当前路径不在限制名单）→ 放行

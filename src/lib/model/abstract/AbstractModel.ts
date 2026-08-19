@@ -56,10 +56,11 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
      *
      * @param {string | number} shardValue
      * @param {boolean} isList
+     * @param {boolean} isLower
      * @return {Promise<R>}
      * @private
      */
-    protected async _get<R extends EntityVo<T> | EntityVoList<T>>(shardValue: string | number, isList: boolean = false): Promise<R> {
+    protected async _get<R extends EntityVo<T> | EntityVoList<T>>(shardValue: string | number, isList: boolean = false, isLower: boolean = false): Promise<R> {
         // 先从系统缓存中获取数据
         if (this._hasCache()) {
             return this._loadCache() as R;
@@ -68,7 +69,7 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
         // 从 mysql 和 redis 中获取 Entity / EntityList
         const entity = (isList)
             ? await OrmFactory.getVoList(this._target, shardValue)
-            : await OrmFactory.getVo(this._target, shardValue);
+            : await OrmFactory.getVo(this._target, shardValue, null, isLower);
 
         // 不管是否存在返回数据，都需要存到系统缓存中，否则每次 get 无数据的行，都会去请求 redis 和 mysql
         this._saveCache(entity);

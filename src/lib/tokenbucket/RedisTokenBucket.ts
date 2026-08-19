@@ -51,16 +51,58 @@ export class RedisTokenBucket {
             args.push(String(bucket.rate), String(bucket.capacity), String(idleTtl));
         }
 
-        const script = `
-            local now = tonumber(ARGV[1])
-            local results = {}
-            for i = 1, #KEYS do
-                local rate = tonumber(ARGV[(i - 1) * 3 + 2])
-                local capacity = tonumber(ARGV[(i - 1) * 3 + 3])
-                local ttl = tonumber(ARGV[(i - 1) * 3 + 4])
+        // 集群/代理模式（如阿里云集群版）对 Lua 脚本做静态校验：所有 key 必须通过 KEYS 传入，
+        // 且禁止以表达式方式访问 KEYS（#KEYS、KEYS[i] 循环等会被拒绝）。因此按桶数把循环展开，
+        // 脚本内只出现字面量 KEYS[1]/KEYS[2]... 直接用于 redis.call 的 key 位置。
+        // 脚本正文只取决于桶数（key 值仍在 KEYS 数组、参数仍在 ARGV），Redis 侧仍按正文缓存。
+        const script = buildTokenBucketScript(buckets.length);
+        // Lua 在 Redis 单实例上原子执行（EVAL），多桶合并为一次网络往返且并发安全；
+        // 返回为 1 基 Lua 数组 {allowed, wait(ms), remaining, reset(ms)}，node_redis 转为 0 基 JS 数组
+        const r = await cache.eval(script, {
+            keys: buckets.map((bucket) => bucket.key),
+            arguments: args
+        }) as Array<Array<string | number>>;
+        return r.map((item) => {
+            const allowed = Number(item[0]) === 1;
+            const waitMs = Number(item[1]);
+            return {
+                allowed,
+                retryAfter: (allowed) ? 0 : Math.max(1, Math.ceil(waitMs / 1000)),
+                remaining: Number(item[2]),
+                reset: Math.max(0, Math.ceil(Number(item[3]) / 1000))
+            };
+        });
+    }
+}
+
+/**
+ * 生成取令牌 Lua 脚本：按桶数展开，每个桶的 key 访问点都是字面量 KEYS[i]
+ *
+ * 背景：Redis 集群/代理模式对 Lua 脚本有静态校验，要求脚本使用的所有 key 通过 KEYS 数组传入，
+ * 且 KEYS 不能出现在表达式中（如 #KEYS 取长度、KEYS[i] 循环访问都会被拒绝）；
+ * 展开后每个 redis.call 的 key 位置都是常量索引 KEYS[1]/KEYS[2]...，可通过校验。
+ * ARGV 排布与 take() 中保持一致：ARGV[1] = 时间戳，之后每桶 rate/capacity/ttl。
+ *
+ * @param {number} bucketCount - 桶数量（即 KEYS 长度）
+ * @return {string} Lua 脚本
+ */
+function buildTokenBucketScript(bucketCount: number): string {
+    const lines: Array<string> = [
+        'local now = tonumber(ARGV[1])',
+        'local results = {}'
+    ];
+    for (let i = 1; i <= bucketCount; i++) {
+        const rateIdx = (i - 1) * 3 + 2;
+        const capacityIdx = (i - 1) * 3 + 3;
+        const ttlIdx = (i - 1) * 3 + 4;
+        lines.push(`
+            do
+                local rate = tonumber(ARGV[${rateIdx}])
+                local capacity = tonumber(ARGV[${capacityIdx}])
+                local ttl = tonumber(ARGV[${ttlIdx}])
                 -- 桶状态存 hash：tokens 当前令牌数（可为小数）、ts 上次补充时间（毫秒）
-                local tokens = tonumber(redis.call('hget', KEYS[i], 'tokens'))
-                local ts = tonumber(redis.call('hget', KEYS[i], 'ts'))
+                local tokens = tonumber(redis.call('hget', KEYS[${i}], 'tokens'))
+                local ts = tonumber(redis.call('hget', KEYS[${i}], 'ts'))
                 if tokens == nil then tokens = capacity end  -- 首次访问：满桶
                 if ts == nil then ts = now end
                 if now > ts then
@@ -80,29 +122,14 @@ export class RedisTokenBucket {
                     wait = math.ceil((1 - tokens) / rate * 1000)
                     if wait < 1 then wait = 1 end
                 end
-                redis.call('hmset', KEYS[i], 'tokens', tokens, 'ts', now)  -- 写回状态
-                redis.call('expire', KEYS[i], ttl)                          -- 刷新空闲 TTL，无请求自动过期
+                redis.call('hmset', KEYS[${i}], 'tokens', tokens, 'ts', now)  -- 写回状态
+                redis.call('expire', KEYS[${i}], ttl)                          -- 刷新空闲 TTL，无请求自动过期
                 -- 回满所需毫秒数（供 X-RateLimit-Reset 使用）
                 local reset = math.ceil((capacity - remaining) / rate * 1000)
-                results[i] = {allowed, wait, remaining, reset}
+                results[${i}] = {allowed, wait, remaining, reset}
             end
-            return results
-        `;
-        // Lua 在 Redis 单实例上原子执行（EVAL），多桶合并为一次网络往返且并发安全；
-        // 返回为 1 基 Lua 数组 {allowed, wait(ms), remaining, reset(ms)}，node_redis 转为 0 基 JS 数组
-        const r = await cache.eval(script, {
-            keys: buckets.map((bucket) => bucket.key),
-            arguments: args
-        }) as Array<Array<string | number>>;
-        return r.map((item) => {
-            const allowed = Number(item[0]) === 1;
-            const waitMs = Number(item[1]);
-            return {
-                allowed,
-                retryAfter: (allowed) ? 0 : Math.max(1, Math.ceil(waitMs / 1000)),
-                remaining: Number(item[2]),
-                reset: Math.max(0, Math.ceil(Number(item[3]) / 1000))
-            };
-        });
+        `);
     }
+    lines.push('return results');
+    return lines.join('\n');
 }

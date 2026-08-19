@@ -26,6 +26,18 @@ export class CryptoTools {
     }
 
     /**
+     * 计算给定内容的 SHA-256 哈希值。
+     *
+     * 此方法接受一个字符串或数字类型的内容，将其转换为字符串后，使用 Node.js 的 crypto 模块计算其 SHA-256 哈希值，并以十六进制字符串的形式返回。
+     *
+     * @param {string | number} content - 要计算 SHA-256 哈希值的内容，可以是字符串或数字。
+     * @returns {string} - 计算得到的 SHA-256 哈希值，以十六进制字符串表示。
+     */
+    public static sha256(content: string | number): string {
+        return crypto.createHash('sha256').update(String(content)).digest('hex');
+    }
+
+    /**
      * 计算给定内容的 Hmac SHA-256 哈希值。
      *
      * 此方法接受一个字符串或数字类型的内容，将其转换为字符串后，使用 Node.js 的 crypto 模块计算其 SHA-1 哈希值，并以十六进制字符串的形式返回。
