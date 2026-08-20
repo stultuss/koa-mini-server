@@ -134,12 +134,13 @@ export class SettingManager {
         try {
             // 调用 config watch 服务获取配置
             const response = await grpc_config_watch_func(this._lastUpdateTime);
-            const configs = JsonTools.parse(response);
-            const config_names = Object.keys(configs);
+            if (!response) return; // 判断配置中心返回是否为空
 
-            if (!config_names?.length && config_names.length === 0) {
-                return;
-            }
+            const configs = JsonTools.parse(response);
+            if (!configs || typeof configs !== 'object') return; // 判断配置是否为正确结构
+
+            const config_names = Object.keys(configs);
+            if (config_names.length === 0) return; // 判断配置是否有配置
 
             console.log('-------------------------CONFIG SYNC-------------------------');
             console.log(JsonTools.stringify(config_names));
@@ -168,6 +169,7 @@ export class SettingManager {
                 this._time.set(name, data.time);
             }
         } catch (e) {
+            console.log(e);
             Logger.warn(e.message);
         }
     }
