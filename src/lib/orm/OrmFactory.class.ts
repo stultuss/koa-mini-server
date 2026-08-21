@@ -110,7 +110,6 @@ export class OrmFactory {
                     const content = await fsp.readFile(filePath, 'utf-8');
                     const entityShardCount = await OrmUtils.getShardCount(content);
                     const entityTableName = await OrmUtils.getTableName(content);
-                    const entityCacheName = await OrmUtils.getCacheName(content);
                     const entityInfo = path.parse(filePath);
                     const entityClassName = entityInfo.name;
                     this._saveEntityConn(entityClassName, option.database);
@@ -127,7 +126,7 @@ export class OrmFactory {
                         // 计算数据表分片
                         const suffix = OrmUtils.suffix(i, entityShardCount);
                         const copyPath = await OrmUtils.copyFile(filePath, entityClassName, suffix);
-                        const className = await OrmUtils.rewriteFile(copyPath, entityClassName, suffix, content, entityTableName, entityCacheName);
+                        const className = await OrmUtils.rewriteFile(copyPath, entityClassName, suffix, content, entityTableName);
 
                         this._saveEntityConn(className, option.database);
                         this._saveEntityInfo(entityClassName, className, copyPath);

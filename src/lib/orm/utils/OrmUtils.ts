@@ -51,25 +51,6 @@ export class OrmUtils {
     }
 
     /**
-     * 通过文件内容获得 EntityClass 的 cacheName
-     *
-     * 返回 CacheName 装饰器的实参原文（含引号/反引号），供 rewriteFile 原样写回，
-     * 以保留 `${serverConfig.name}:xxx` 这类模板字符串形式的动态缓存键前缀。
-     *
-     * @param {string} content
-     * @return {Promise<string>}
-     */
-    public static async getCacheName(content: string): Promise<string> {
-        try {
-            const matchText = this.regExec(content, /[@.]CacheName\([^)]*\)/) || this.regExec(content, /[@.]CacheName\)\([^)]*\)/);
-            return this.regExec(matchText, /['"`][^'"`]*['"`]/);
-        } catch (e) {
-            Logger.warn('[ORM] getCacheName: Empty content provided');
-            return null;
-        }
-    }
-
-    /**
      * 文件拷贝
      *
      * @param {string} filePath
@@ -97,10 +78,9 @@ export class OrmUtils {
      * @param {string} suffix
      * @param {string} content
      * @param {string} tableName
-     * @param {string} cacheName  CacheName 装饰器实参原文（含引号/反引号，来自 getCacheName）
      * @return {Promise<string>}
      */
-    public static async rewriteFile(filePath: string, className: string, suffix: string | number, content: string, tableName: string, cacheName: string): Promise<string> {
+    public static async rewriteFile(filePath: string, className: string, suffix: string | number, content: string, tableName: string): Promise<string> {
         const fileInfo = path.parse(filePath);
         try {
             await fsp.writeFile(
@@ -113,8 +93,6 @@ export class OrmUtils {
                     .replace(new RegExp(`exports.${fileInfo.name} = ${className};`), `exports.${fileInfo.name} = ${fileInfo.name};`)
                     .replace(new RegExp(/\.Entity\(\'\S+\'\)/), `.Entity('${tableName}_${suffix}')`)
                     .replace(new RegExp(/\.Entity\)\(\'\S+\'\)/), `.Entity)('${tableName}_${suffix}')`)
-                    .replace(new RegExp(/\.CacheName\([^)]*\)/), `.CacheName(${cacheName})`)
-                    .replace(new RegExp(/\.CacheName\)\([^)]*\)/), `.CacheName)(${cacheName})`)
             );
             return fileInfo.name;
         } catch (e) {
