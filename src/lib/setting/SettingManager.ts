@@ -157,9 +157,17 @@ export class SettingManager {
                     continue;
                 }
 
+                // 防御：下发内容必须为普通对象（防 {value: null} / 数组 / 标量等脏数据），
+                // 否则跳过本组，避免把线上配置整组替换成空对象/失效值导致误判
+                if (!data.value || typeof data.value !== 'object' || Array.isArray(data.value)) {
+                    Logger.warn(`[CONFIG SYNC] Skip invalid config: ${name}, data.value =`, data.value);
+                    continue;
+                }
+
                 // 配置合并
                 const oldSetting = this._settings.get(name);
-                const newSetting = Utils.deepMerge(Object.assign({}, oldSetting), data.value);
+                const copySetting = oldSetting ? JsonTools.parse(JsonTools.stringify(oldSetting)) : {};
+                const newSetting = Utils.deepMerge(copySetting, data.value);
 
                 // 防止对象被篡改
                 Utils.deepFreeze(newSetting);

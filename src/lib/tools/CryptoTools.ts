@@ -74,14 +74,12 @@ export class CryptoTools {
      *
      * @param {string} content - 要加密的 UTF-8 字符串内容。
      * @param {string} secret - 用于加密的密钥。
-     * @param {string} [iv=''] - 可选的初始化向量，默认为空字符串。
      * @returns {string} - 加密后的十六进制字符串。
      */
-    public static encrypt(content: string, secret: string, iv: string = ''): string {
+    public static encrypt(content: string, secret: string): string {
         // 加密配置设置
         const Key = crypto.createHash('sha256').update(String(secret)).digest('base64').slice(0, 16);
-        const Iv = crypto.createHash('sha256').update(String(iv)).digest('base64').slice(0, 0);
-        const cipher = crypto.createCipheriv('aes-128-ecb', Key, Iv);
+        const cipher = crypto.createCipheriv('aes-128-ecb', Key, '');
         // 加密开始
         const encode = [];
         encode.push(cipher.update(content, 'utf8', 'hex'));
@@ -98,14 +96,12 @@ export class CryptoTools {
      *
      * @param {string} content - 要解密的十六进制字符串内容。
      * @param {string} secret - 用于解密的密钥。
-     * @param {string} [iv=''] - 可选的初始化向量，默认为空字符串。
      * @returns {string} - 解密后的 UTF-8 字符串。
      */
-    public static decrypt(content: string, secret: string, iv: string = ''): string {
+    public static decrypt(content: string, secret: string): string {
         // 解密配置设置
         const Key = crypto.createHash('sha256').update(String(secret)).digest('base64').slice(0, 16);
-        const Iv = crypto.createHash('sha256').update(String(iv)).digest('base64').slice(0, 0);
-        const decipher = crypto.createDecipheriv('aes-128-ecb', Key, Iv);
+        const decipher = crypto.createDecipheriv('aes-128-ecb', Key, '');
         // 解密开始
         const decode = [];
         decode.push(decipher.update(content, 'hex', 'utf8'));

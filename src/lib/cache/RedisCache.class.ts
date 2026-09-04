@@ -535,7 +535,7 @@ export class RedisCache extends AbstractCache {
      */
     @Connection()
     public async incrVersion(key: string): Promise<number> {
-        return await this._conn.incr(key);
+        return this.incr(key);
     }
 
     /**

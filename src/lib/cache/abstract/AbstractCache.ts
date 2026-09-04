@@ -3,11 +3,11 @@ import {RandomTools} from '../../tools/RandomTools';
 
 /**
  * default expire time, in seconds
- * default is 1296000 = 2 weeks
+ * default is 604800 = 1 weeks
  *
  * @type {number}
  */
-export const CACHE_EXPIRE: number = 1296000;
+export const CACHE_EXPIRE: number = 604800;
 
 /**
  * max % variance in actual expiration time <br/>

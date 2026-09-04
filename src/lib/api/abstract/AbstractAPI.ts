@@ -108,7 +108,7 @@ export abstract class AbstractAPI {
         function _formatParams(params: Record<string, any>): Record<string, any> {
             for (const [key, value] of Object.entries(params)) {
                 // 如果参数值为空或参数值的字符串长度大于 14，不进行数字格式化，跳过本次循环
-                if (Utils.isEmpty(value) || String(value)?.length > 14) {
+                if (Utils.isEmptyValue(value) || String(value)?.length > 14) {
                     // BigInt大于14位会丢失精度
                     continue;
                 }

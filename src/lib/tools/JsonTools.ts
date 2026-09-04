@@ -1,3 +1,5 @@
+import {FlexibleMap} from '../FlexibleMap';
+
 export class JsonTools {
     /**
      * 将 JSON 字符串解析为 JavaScript 对象。
@@ -66,7 +68,8 @@ export class JsonTools {
      * @returns {Map<string, any>} - 转换后的 Map 对象，键为字符串类型，值保持原类型。
      */
     public static objToMap(obj: Object): Map<string, any> {
-        const strMap = new Map();
+        // 使用 FlexibleMap：键统一为字符串，同时支持 number/string 等原始类型互相查找
+        const strMap = new FlexibleMap();
         for (const k of Object.keys(obj)) {
             strMap.set(String(k), obj[k]);
         }

@@ -12,7 +12,7 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
 
     public abstract create(data?: Object): EntityVo<T>;
 
-    public abstract get(): Promise<EntityVo<T> | EntityVoList<T>>;
+    public abstract get(indexValue?: string | number): Promise<EntityVo<T> | EntityVoList<T>>;
 
     public abstract set(value: EntityVo<T> | EntityVoList<T>): Promise<EntityVo<T> | EntityVoList<T>>;
 
@@ -55,12 +55,13 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
      * 获取数据，Model 智能判断是 Entity 还是 EntityList（通过shardValue获取分片的整体数据）
      *
      * @param {string | number} shardValue
+     * @param {string | number} indexValue
      * @param {boolean} isList
      * @param {boolean} isLower
      * @return {Promise<R>}
      * @private
      */
-    protected async _get<R extends EntityVo<T> | EntityVoList<T>>(shardValue: string | number, isList: boolean = false, isLower: boolean = false): Promise<R> {
+    protected async _get<R extends EntityVo<T> | EntityVoList<T>>(shardValue: string | number, indexValue?: string | number, isList: boolean = false, isLower: boolean = false): Promise<R> {
         // 先从系统缓存中获取数据
         if (this._hasCache()) {
             return this._loadCache() as R;
@@ -69,7 +70,7 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
         // 从 mysql 和 redis 中获取 Entity / EntityList
         const entity = (isList)
             ? await OrmFactory.getVoList(this._target, shardValue)
-            : await OrmFactory.getVo(this._target, shardValue, null, isLower);
+            : await OrmFactory.getVo(this._target, shardValue, indexValue, isLower);
 
         // 不管是否存在返回数据，都需要存到系统缓存中，否则每次 get 无数据的行，都会去请求 redis 和 mysql
         this._saveCache(entity);
@@ -111,7 +112,7 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
      * @param vo
      */
     protected async _save<R extends EntityVoList<T>>(shardValue: string | number, indexValue: string | number, vo: EntityVo<T>): Promise<R> {
-        const list = await this._get(shardValue, true) as EntityVoList<T>;
+        const list = await this._get(shardValue, indexValue, true) as EntityVoList<T>;
         if (vo == null || list == null) {
             return list as R;
         }
@@ -125,7 +126,7 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
 
         list[indexValue] = vo;
         this._saveCache(list);
-        return this._get(shardValue, true);
+        return this._get(shardValue, indexValue, true);
     }
 
     /**
@@ -135,13 +136,13 @@ export abstract class AbstractModel<T extends BaseOrmEntity> {
      * @param indexValue
      */
     protected async _remove<R extends EntityVoList<T>>(shardValue: string | number, indexValue: string | number): Promise<R> {
-        const list = await this._get(shardValue, true) as EntityVoList<T>;
+        const list = await this._get(shardValue, indexValue, true) as EntityVoList<T>;
         if (indexValue == null || list == null || list[indexValue] == null) {
             return list as R;
         }
         await list[indexValue].remove();
         delete list[indexValue];
         this._saveCache(list);
-        return this._get(shardValue, true);
+        return this._get(shardValue, indexValue, true);
     }
 }

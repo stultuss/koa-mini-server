@@ -8,6 +8,7 @@ import {ShardingTools} from '../tools/ShardingTools';
 import {BaseOrmEntity} from './abstract/BaseOrmEntity';
 import {OrmEntityStorage} from './OrmEntityStorage';
 import {OrmUtils} from './utils/OrmUtils';
+import {OrmTypeUtils} from './utils/OrmTypeUtils';
 import {Logger} from '../Logger';
 import {Utils} from '../Utils';
 
@@ -338,7 +339,19 @@ export class OrmFactory {
         // 如果尚未分片，需要进行一次分片
         const targetEntity = (hasEntityShard) ? entity : OrmFactory.instance().getEntity(entity, shardValue);
         const entityInstance = (targetEntity as any).create();
-        return (data) ? Object.assign(entityInstance, data) : entityInstance;
+        if (data) {
+            Object.assign(entityInstance, data);
+            // 读取侧归一化：按列类型转换字段值，兼容历史脏缓存（缓存 number / 数据库 string 等）
+            const metadata = OrmFactory.instance().getConnection(targetEntity).getMetadata(targetEntity);
+            for (const column of metadata.columns) {
+                const value = column.getEntityValue(entityInstance);
+                const normalized = OrmTypeUtils.normalizeValue(column.type, value);
+                if (normalized !== value) {
+                    column.setEntityValue(entityInstance, normalized);
+                }
+            }
+        }
+        return entityInstance;
     }
 
     /**
@@ -356,7 +369,7 @@ export class OrmFactory {
     ): Promise<T> {
         // 需要先根据传入的 Entity 进行一次分片，防止数据库 table_name 丢失
         const target = OrmFactory.instance().getEntity(entity, shardValue);
-        const {HaveRowList} = OrmEntityStorage.instance.get(target.name);
+        const {ShardColumn, IndexColumn, HaveRowList} = OrmEntityStorage.instance.get(target.name);
 
         // 参数验证
         if (HaveRowList && (!shardValue || !indexValue)) {
@@ -364,6 +377,12 @@ export class OrmFactory {
         }
 
         if (!indexValue) {
+            // ShardColumn != IndexColumn 的实体（联合主键，如 OpenBind* 系列）：按分片字段可能匹配多行，
+            // indexValue 缺省时无法确定唯一行。fallback 用 shardValue 会导致缓存 field 错位
+            // （恒 miss）且取值恒 undefined，这里直接按 list 语义报 10033，强制传入 indexValue。
+            if (ShardColumn != IndexColumn) {
+                throw new ErrorMessage(10033, target.name);
+            }
             indexValue = shardValue;
         }
 
@@ -406,7 +425,7 @@ export class OrmFactory {
     ): Promise<T> {
         // 需要先根据传入的 Entity 进行一次分片，防止数据库 table_name 丢失
         const target = OrmFactory.instance().getEntity(entity, shardValue);
-        const {HaveRowList} = OrmEntityStorage.instance.get(target.name);
+        const {ShardColumn, IndexColumn, HaveRowList} = OrmEntityStorage.instance.get(target.name);
 
         // 参数验证
         if (HaveRowList && (!shardValue || !indexValue)) {
@@ -414,6 +433,12 @@ export class OrmFactory {
         }
 
         if (!indexValue) {
+            // ShardColumn != IndexColumn 的实体（联合主键，如 OpenBind* 系列）：按分片字段可能匹配多行，
+            // indexValue 缺省时无法确定唯一行。fallback 用 shardValue 会导致缓存 field 错位
+            // （恒 miss）且取值恒 undefined，这里直接按 list 语义报 10033，强制传入 indexValue。
+            if (ShardColumn != IndexColumn) {
+                throw new ErrorMessage(10033, target.name);
+            }
             indexValue = shardValue;
         }
 

@@ -2,19 +2,9 @@ import * as http from 'http';
 import * as util from 'util';
 import * as os from 'os';
 import {CryptoTools} from './tools/CryptoTools';
+import {FlexibleMap} from './FlexibleMap';
 
 export class Utils {
-    /**
-     * 检查值是否为空
-     *
-     * @param value
-     */
-    public static isEmpty(value: any): boolean {
-        if (typeof value === 'string') return !value.trim();
-        if (typeof value === 'number') return Number.isNaN(value);
-        return !value;
-    }
-
     /**
      * 兼容 underscore.isEmpty 语义：null/undefined、空字符串、空数组、
      * 空 Buffer、无自有属性的对象/数值等均视为空
@@ -250,14 +240,14 @@ export class Utils {
      */
     public static deepFreeze(obj: Object) {
         Object.freeze(obj);
-        const keys = Object.keys(obj);
-        for (const key of keys) {
-            const v = obj[key];
-            if (typeof v !== 'object' || Object.isFrozen(v)) {
-                continue;
-            }
-            Utils.deepFreeze(v);
-        }
+        // const keys = Object.keys(obj);
+        // for (const key of keys) {
+        //     const v = obj[key];
+        //     if (typeof v !== 'object' || Object.isFrozen(v)) {
+        //         continue;
+        //     }
+        //     Utils.deepFreeze(v);
+        // }
     }
 
     /**
@@ -354,7 +344,7 @@ export class Utils {
      * @return Map<string, any>
      */
     public static getFieldValueListFromObject(obj: Object, fieldName: string): Map<string, any> {
-        const r = new Map();
+        const r = new FlexibleMap();
         for (const key of Object.keys(obj)) {
             if (obj[key].hasOwnProperty(fieldName) && obj[key][fieldName] !== null) {
                 r.set(String(obj[key][fieldName]), obj[key]);
@@ -381,4 +371,30 @@ export class Utils {
         list.forEach((v) => (obj[v[pk]] = vk && vk !== '' ? v[vk] : v));
         return obj;
     };
+
+    /**
+     * 移除单个字符串中的所有4字节字符
+     * @param {string} text - 待处理的文本
+     * @returns {string} 处理后的安全文本
+     */
+    public static remove4ByteChars = (text: string): string => {
+        if (typeof text !== 'string' || text.length === 0) {
+            return text;
+        }
+        // 匹配所有码点大于0xFFFF的字符（4字节UTF-8）
+        // u 标志支持Unicode转义，g 标志全局匹配
+        return text.replaceAll(/[\u{10000}-\u{10FFFF}]/gu, '');
+    }
+
+    /**
+     * 检测文本是否包含MySQL utf8不支持的4字节字符
+     * @param {string} text - 待检测的文本
+     * @returns {boolean} 是否包含不支持的字符
+     */
+    public static hasUnsupportedChars = (text: string): boolean => {
+        if (typeof text !== 'string' || text.length === 0) {
+            return false;
+        }
+        return /[\u{10000}-\u{10FFFF}]/u.test(text);
+    }
 }

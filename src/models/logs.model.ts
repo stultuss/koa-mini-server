@@ -36,7 +36,7 @@ export class LogsModel extends AbstractModel<Logs> {
   }
 
   public async get(): Promise<LogsVoList> {
-    return await this._get<LogsVoList>(this._pk, true);
+    return await this._get<LogsVoList>(this._pk, null, true);
   }
 
   public async set(value: LogsVoList): Promise<LogsVoList> {

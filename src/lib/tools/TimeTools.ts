@@ -18,7 +18,9 @@ export class TimeTools {
         DAY: 86400,
         DAYS_2: 172800,
         DAYS_3: 259200,
-        DAYS_7: 604800
+        DAYS_7: 604800,
+        MONTH: 2592000,
+        YEAR: 31536000
     };
 
     /**

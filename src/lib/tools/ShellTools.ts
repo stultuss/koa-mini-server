@@ -120,7 +120,6 @@ export class ShellTools {
 
         const command = os.platform() === 'darwin' ? 'ps' : 'ps -o';
         const args = [
-            '-o',
             'etime,pid,ppid,pcpu,time',
             '-p',
             pids.filter(pid => Number.isInteger(pid)).join(',')
